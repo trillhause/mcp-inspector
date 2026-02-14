@@ -1,7 +1,7 @@
 # Task 2: PKCE + Authorize Route
 
 **Sprint:** 3 - OAuth Connect Flow (End-to-End)
-**Status:** not_started
+**Status:** done
 **Depends on:** Task 1
 
 ## Description
@@ -42,7 +42,7 @@ Create the authorization initiation path: generate PKCE values, persist short-li
 
 ## Acceptance Criteria
 
-- [ ] PKCE values are generated and encoded correctly for S256
-- [ ] OAuth state is stored with expiry and linked to target server
-- [ ] Authorize route returns a redirectable authorization URL
-- [ ] Dynamic registration is supported when available
+- [x] PKCE values are generated and encoded correctly for S256
+- [x] OAuth state is stored with expiry and linked to target server
+- [x] Authorize route returns a redirectable authorization URL
+- [x] Dynamic registration is supported when available
