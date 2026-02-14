@@ -17,7 +17,7 @@
       "status": "not_started",
       "goal": "Set up SQLite with schema, seed pre-configured servers, create CRUD API routes, and wire the UI to fetch from real API instead of hardcoded data. Add the 'Add Custom Server' dialog.",
       "testable": "Refresh page → cards load from API (network tab shows GET /api/servers) → open 'Add Server' dialog → enter a URL and name → new card appears in Custom Servers section → delete it → it disappears.",
-      "tasks": null,
+      "tasks": 5,
       "taskDir": ".docs/sprint-2/"
     },
     {
