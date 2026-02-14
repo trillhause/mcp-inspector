@@ -1,7 +1,7 @@
 # Task 3: App Layout & Server Cards Grid
 
 **Sprint:** 1 - Interactive UI Shell
-**Status:** not_started
+**Status:** done
 **Depends on:** Task 2
 
 ## Description
@@ -51,9 +51,9 @@ Build the full page layout (header, main content area, server card grid) using s
 
 ## Acceptance Criteria
 
-- [ ] Header renders with title and disabled "Add Server" button
-- [ ] 6 server cards visible in a responsive grid
-- [ ] Each card shows icon, name, description, status badge
-- [ ] Cards have hover effect
-- [ ] Layout fills viewport height, no horizontal scroll
-- [ ] Works in dark mode (if system prefers dark)
+- [x] Header renders with title and disabled "Add Server" button
+- [x] 6 server cards visible in a responsive grid
+- [x] Each card shows icon, name, description, status badge
+- [x] Cards have hover effect
+- [x] Layout fills viewport height, no horizontal scroll
+- [x] Works in dark mode (if system prefers dark)
