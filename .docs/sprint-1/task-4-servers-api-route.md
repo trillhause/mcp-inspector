@@ -1,7 +1,7 @@
 # Task 4: Interactive Inspector Panel
 
 **Sprint:** 1 - Interactive UI Shell
-**Status:** not_started
+**Status:** done
 **Depends on:** Task 3
 
 ## Description
@@ -52,11 +52,11 @@ Build the collapsible inspector panel at the bottom of the page. Clicking a serv
 
 ## Acceptance Criteria
 
-- [ ] Inspector panel toggles between collapsed and expanded with smooth animation
-- [ ] Clicking a server card selects it (visual highlight) and opens inspector
-- [ ] Inspector shows selected server name, icon, status badge
-- [ ] Three placeholder tabs visible (Tools, Resources, History)
-- [ ] × button deselects server and shows empty state
-- [ ] Escape key closes inspector
-- [ ] Clicking another card switches the inspector content
-- [ ] Panel is resizable or has a sensible fixed height (~40vh)
+- [x] Inspector panel toggles between collapsed and expanded with smooth animation
+- [x] Clicking a server card selects it (visual highlight) and opens inspector
+- [x] Inspector shows selected server name, icon, status badge
+- [x] Three placeholder tabs visible (Tools, Resources, History)
+- [x] × button deselects server and shows empty state
+- [x] Escape key closes inspector
+- [x] Clicking another card switches the inspector content
+- [x] Panel is resizable or has a sensible fixed height (~40vh)
