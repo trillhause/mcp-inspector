@@ -1,7 +1,7 @@
 # Task 5: Token Refresh + Credential Lifecycle Hardening
 
 **Sprint:** 3 - OAuth Connect Flow (End-to-End)
-**Status:** not_started
+**Status:** done
 **Depends on:** Task 3
 
 ## Description
@@ -41,7 +41,7 @@ Implement refresh behavior and lifecycle handling so connected servers remain us
 
 ## Acceptance Criteria
 
-- [ ] Refresh flow updates stored credentials safely
-- [ ] Refresh-token rotation is handled correctly
-- [ ] `invalid_grant` triggers reconnect path instead of repeated retries
-- [ ] No sensitive token values are logged
+- [x] Refresh flow updates stored credentials safely
+- [x] Refresh-token rotation is handled correctly
+- [x] `invalid_grant` triggers reconnect path instead of repeated retries
+- [x] No sensitive token values are logged
