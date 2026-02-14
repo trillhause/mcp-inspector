@@ -1,7 +1,7 @@
 # Task 3: Servers CRUD API Routes
 
 **Sprint:** 2 - Database, API & Live Data
-**Status:** not_started
+**Status:** done
 **Depends on:** Task 2
 
 ## Description
@@ -49,9 +49,9 @@ Implement the server management API used by the app: list servers, create custom
 
 ## Acceptance Criteria
 
-- [ ] `/api/servers` supports `GET` and `POST`
-- [ ] `/api/servers/[id]` supports `GET`, `PATCH`, and `DELETE`
-- [ ] Input validation prevents malformed URLs and missing required fields
-- [ ] URL canonicalization prevents duplicate logical servers caused by path/trailing slash variants
-- [ ] API responses are typed/consistent for frontend consumption
-- [ ] Core CRUD paths are manually verified end-to-end
+- [x] `/api/servers` supports `GET` and `POST`
+- [x] `/api/servers/[id]` supports `GET`, `PATCH`, and `DELETE`
+- [x] Input validation prevents malformed URLs and missing required fields
+- [x] URL canonicalization prevents duplicate logical servers caused by path/trailing slash variants
+- [x] API responses are typed/consistent for frontend consumption
+- [x] Core CRUD paths are manually verified end-to-end
