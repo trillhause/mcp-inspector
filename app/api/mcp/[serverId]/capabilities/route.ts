@@ -2,18 +2,35 @@ import { NextResponse } from "next/server";
 
 import { dbQueryFirst } from "@/lib/db";
 import {
-  readCachedCapabilities,
-  upsertDiscoveredCapabilities,
   type CachedCapabilitiesRecord,
+  readCachedCapabilities,
 } from "@/lib/mcp/capabilities-store";
 import {
-  discoverCapabilities,
-  isMcpCapabilityDiscoveryError,
-} from "@/lib/mcp/discovery";
+  DEFAULT_CAPABILITIES_CACHE_TTL_MS,
+  enqueueCapabilitiesRefresh,
+  getCapabilitiesCacheAgeMs,
+  refreshCapabilitiesForServer,
+} from "@/lib/mcp/capabilities-refresh";
 import { isMcpClientError } from "@/lib/mcp/client";
+import { isMcpCapabilityDiscoveryError } from "@/lib/mcp/discovery";
 import { bootstrapServerStore } from "@/lib/servers";
 
 export const runtime = "nodejs";
+
+const CAPABILITIES_CACHE_TTL_MS = DEFAULT_CAPABILITIES_CACHE_TTL_MS;
+
+type ConnectionStatus = "connected" | "expired" | "disconnected";
+type StaleReason =
+  | "cache_stale_ttl"
+  | "reconnect_required"
+  | "disconnected"
+  | "refresh_failed";
+
+type ServerConnectionRow = {
+  id: string;
+  token_expires_at: string | null;
+  has_credentials: number;
+};
 
 type ApiError = {
   status: number;
@@ -95,8 +112,57 @@ function mapInternalError(error: unknown): ApiError {
   };
 }
 
-function toCapabilitiesPayload(record: CachedCapabilitiesRecord, cached: boolean) {
+function resolveConnectionStatus(
+  row: Pick<ServerConnectionRow, "token_expires_at" | "has_credentials">,
+): ConnectionStatus {
+  if (row.has_credentials !== 1) {
+    return "disconnected";
+  }
+
+  if (!row.token_expires_at) {
+    return "connected";
+  }
+
+  const expiresAtMs = Date.parse(row.token_expires_at);
+  if (Number.isNaN(expiresAtMs) || expiresAtMs <= Date.now()) {
+    return "expired";
+  }
+
+  return "connected";
+}
+
+function buildStaleMessage(reason: StaleReason) {
+  if (reason === "cache_stale_ttl") {
+    return "Capabilities cache is stale and may be out-of-date.";
+  }
+
+  if (reason === "reconnect_required") {
+    return "Credentials appear expired. Reconnect this server to refresh capabilities.";
+  }
+
+  if (reason === "disconnected") {
+    return "Server is disconnected. Showing last known capabilities.";
+  }
+
+  return "Capabilities refresh failed. Showing last known capabilities.";
+}
+
+function toCapabilitiesPayload(
+  record: CachedCapabilitiesRecord,
+  options: {
+    cached: boolean;
+    staleReason?: StaleReason;
+    staleMessage?: string;
+    backgroundRefreshScheduled?: boolean;
+    ageMs?: number | null;
+  },
+) {
   const prompts = record.prompts ?? [];
+  const staleReason = options.staleReason ?? null;
+  const staleMessage = options.staleMessage ?? (staleReason ? buildStaleMessage(staleReason) : null);
+  const stale = staleReason !== null;
+  const ageMs =
+    options.ageMs === undefined ? getCapabilitiesCacheAgeMs(record.last_discovered_at) : options.ageMs;
 
   return {
     mcp_server_id: record.mcp_server_id,
@@ -106,8 +172,14 @@ function toCapabilitiesPayload(record: CachedCapabilitiesRecord, cached: boolean
     tools_count: record.tools.length,
     resources_count: record.resources.length,
     prompts_count: prompts.length,
-    cached,
+    cached: options.cached,
     last_discovered_at: record.last_discovered_at,
+    stale,
+    stale_reason: staleReason,
+    stale_message: staleMessage,
+    cache_age_ms: ageMs,
+    cache_ttl_ms: CAPABILITIES_CACHE_TTL_MS,
+    background_refresh_scheduled: options.backgroundRefreshScheduled === true,
   };
 }
 
@@ -151,22 +223,104 @@ export async function GET(
     });
   }
 
+  const connection = dbQueryFirst<ServerConnectionRow>(
+    `SELECT
+      s.id,
+      c.token_expires_at AS token_expires_at,
+      CASE WHEN c.mcp_server_id IS NULL THEN 0 ELSE 1 END AS has_credentials
+    FROM mcp_servers s
+    LEFT JOIN oauth_credentials c
+      ON c.mcp_server_id = s.id
+    WHERE s.id = ?
+    LIMIT 1`,
+    [serverId],
+  );
+  if (!connection) {
+    return errorResponse({
+      status: 404,
+      code: "NOT_FOUND",
+      message: "Server not found",
+    });
+  }
+
+  const connectionStatus = resolveConnectionStatus(connection);
   const cachedRecord = readCachedCapabilities(serverId);
 
   if (!refreshRequested && cachedRecord) {
-    return NextResponse.json(toCapabilitiesPayload(cachedRecord, true));
+    const cacheAgeMs = getCapabilitiesCacheAgeMs(cachedRecord.last_discovered_at);
+    const staleByTtl = cacheAgeMs === null || cacheAgeMs > CAPABILITIES_CACHE_TTL_MS;
+
+    if (connectionStatus === "expired") {
+      return NextResponse.json(
+        toCapabilitiesPayload(cachedRecord, {
+          cached: true,
+          staleReason: "reconnect_required",
+          ageMs: cacheAgeMs,
+        }),
+      );
+    }
+
+    if (connectionStatus === "disconnected") {
+      return NextResponse.json(
+        toCapabilitiesPayload(cachedRecord, {
+          cached: true,
+          staleReason: "disconnected",
+          ageMs: cacheAgeMs,
+        }),
+      );
+    }
+
+    if (staleByTtl) {
+      enqueueCapabilitiesRefresh({
+        mcpServerId: serverId,
+        reason: "cache_stale_ttl",
+      });
+
+      return NextResponse.json(
+        toCapabilitiesPayload(cachedRecord, {
+          cached: true,
+          staleReason: "cache_stale_ttl",
+          ageMs: cacheAgeMs,
+          backgroundRefreshScheduled: true,
+        }),
+      );
+    }
+
+    return NextResponse.json(
+      toCapabilitiesPayload(cachedRecord, {
+        cached: true,
+        ageMs: cacheAgeMs,
+      }),
+    );
   }
 
   try {
-    const discovered = await discoverCapabilities(serverId);
-    const persisted = upsertDiscoveredCapabilities(discovered);
-    return NextResponse.json(toCapabilitiesPayload(persisted, false));
+    const persisted = await refreshCapabilitiesForServer({
+      mcpServerId: serverId,
+      reason: refreshRequested
+        ? "manual_refresh"
+        : cachedRecord
+          ? "cache_stale_ttl"
+          : "cache_miss",
+    });
+
+    return NextResponse.json(
+      toCapabilitiesPayload(persisted, {
+        cached: false,
+      }),
+    );
   } catch (error) {
     const mappedError = mapInternalError(error);
 
     if (cachedRecord) {
+      const fallbackReason: StaleReason =
+        connectionStatus === "expired" ? "reconnect_required" : "refresh_failed";
+
       return NextResponse.json({
-        ...toCapabilitiesPayload(cachedRecord, true),
+        ...toCapabilitiesPayload(cachedRecord, {
+          cached: true,
+          staleReason: fallbackReason,
+        }),
         error: {
           code: mappedError.code,
           message: mappedError.message,

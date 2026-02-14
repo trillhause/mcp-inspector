@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { dbQueryFirst } from "@/lib/db";
+import { enqueueCapabilitiesRefresh } from "@/lib/mcp/capabilities-refresh";
 import { upsertOAuthCredentials } from "@/lib/oauth/credentials";
 import {
   consumeOAuthState,
@@ -334,6 +335,12 @@ async function processCallback(input: CallbackInput): Promise<CallbackProcessRes
       oauthMetadata: metadata.oauthMetadata,
       protectedResourceUrl: storedState.protected_resource_url,
       authorizationServerUrl: storedState.authorization_server_url,
+    });
+
+    // Fire-and-forget so OAuth callback UX is not blocked by MCP discovery latency.
+    enqueueCapabilitiesRefresh({
+      mcpServerId: storedState.mcp_server_id,
+      reason: "oauth_callback",
     });
 
     return {

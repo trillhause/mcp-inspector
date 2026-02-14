@@ -1,7 +1,7 @@
 # Task 6: Auto Rediscovery + Token Refresh Resilience
 
 **Sprint:** 4 - MCP Capabilities Discovery
-**Status:** not_started
+**Status:** done
 **Depends on:** Task 4, Task 5
 
 ## Description
@@ -38,9 +38,16 @@ Tie capabilities discovery into connect/reconnect lifecycle so capability data s
 - Disconnect and confirm stale capabilities are no longer shown as active for that server
 - Use manual refresh action and confirm updated capability counts
 
+## Implemented Notes
+
+- OAuth callback now enqueues a non-blocking capability rediscovery job after credential persistence.
+- Capability cache now uses a defined TTL policy (15 minutes) and serves stale cache with explicit stale metadata while scheduling a background refresh when eligible.
+- Disconnect now clears `mcp_capabilities` for the target server so stale data is not presented as active after unlinking credentials.
+- Inspector now exposes a dedicated manual refresh action and feedback states; expired/reconnect-required servers can still read cached capabilities with stale warnings.
+
 ## Acceptance Criteria
 
-- [ ] Capability discovery is integrated with connect/reconnect lifecycle
-- [ ] Cache freshness and stale-data behavior are explicitly defined and implemented
-- [ ] Manual refresh is available from inspector UX
-- [ ] End-to-end lifecycle flow is reliable across connect, refresh, disconnect, and reconnect
+- [x] Capability discovery is integrated with connect/reconnect lifecycle
+- [x] Cache freshness and stale-data behavior are explicitly defined and implemented
+- [x] Manual refresh is available from inspector UX
+- [x] End-to-end lifecycle flow is reliable across connect, refresh, disconnect, and reconnect
