@@ -2,7 +2,7 @@
 
 **Goal:** Set up SQLite with schema, seed pre-configured servers, create CRUD API routes, and wire the UI to fetch from real API instead of hardcoded data. Add the "Add Custom Server" dialog.
 
-**Status:** not_started
+**Status:** in_progress
 
 ---
 
@@ -32,7 +32,7 @@ Task 3 (Servers CRUD API) + Task 4 (UI Uses API) → Task 5 (Add Custom Server D
 
 | # | Task | File | Status | Depends On |
 |---|------|------|--------|------------|
-| 1 | SQLite Setup & Schema | [task-1](task-1-database-setup.md) | not_started | — |
+| 1 | SQLite Setup & Schema | [task-1](task-1-database-setup.md) | done | — |
 | 2 | Seed Preconfigured Servers | [task-2](task-2-seed-preconfigured-servers.md) | not_started | Task 1 |
 | 3 | Servers CRUD API Routes | [task-3](task-3-servers-api-route.md) | not_started | Task 2 |
 | 4 | Wire UI to Live API Data | [task-4](task-4-wire-ui-to-live-data.md) | not_started | Task 3 |
