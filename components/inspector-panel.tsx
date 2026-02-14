@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { ChevronDown, ChevronUp, Search, X } from "lucide-react";
+import { ChevronDown, ChevronUp, Loader2, Search, X } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -14,6 +14,10 @@ type InspectorPanelProps = {
   selectedServer: McpServer | null;
   onClearSelection: () => void;
   onExpandedChange: (expanded: boolean) => void;
+  onConnect?: (serverId: string) => void;
+  onDisconnect?: (serverId: string) => void;
+  isConnecting?: boolean;
+  isDisconnecting?: boolean;
 };
 
 const STATUS_STYLES: Record<
@@ -41,6 +45,10 @@ export function InspectorPanel({
   selectedServer,
   onClearSelection,
   onExpandedChange,
+  onConnect,
+  onDisconnect,
+  isConnecting = false,
+  isDisconnecting = false,
 }: InspectorPanelProps) {
   return (
     <aside
@@ -78,6 +86,10 @@ export function InspectorPanel({
             <SelectedServerContent
               server={selectedServer}
               onClearSelection={onClearSelection}
+              onConnect={onConnect}
+              onDisconnect={onDisconnect}
+              isConnecting={isConnecting}
+              isDisconnecting={isDisconnecting}
             />
           ) : (
             <EmptyInspectorState />
@@ -91,16 +103,26 @@ export function InspectorPanel({
 function SelectedServerContent({
   server,
   onClearSelection,
+  onConnect,
+  onDisconnect,
+  isConnecting,
+  isDisconnecting,
 }: {
   server: McpServer;
   onClearSelection: () => void;
+  onConnect?: (serverId: string) => void;
+  onDisconnect?: (serverId: string) => void;
+  isConnecting: boolean;
+  isDisconnecting: boolean;
 }) {
   const status = STATUS_STYLES[server.connection_status];
+  const isConnected = server.connection_status === "connected";
+  const isBusy = isConnecting || isDisconnecting;
 
   return (
     <div className="flex h-full min-h-0 flex-col py-3">
       <div className="flex items-center justify-between gap-3 border-b pb-3">
-        <div className="flex min-w-0 items-center gap-3">
+        <div className="flex min-w-0 items-center gap-3 overflow-hidden">
           <Image
             src={server.icon_url}
             alt={`${server.name} icon`}
@@ -111,16 +133,54 @@ function SelectedServerContent({
           <p className="truncate text-sm font-semibold sm:text-base">{server.name}</p>
           <Badge className={status.className}>{status.label}</Badge>
         </div>
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon"
-          onClick={onClearSelection}
-          aria-label="Clear selected server"
-          className="size-8"
-        >
-          <X className="size-4" />
-        </Button>
+        <div className="flex shrink-0 items-center gap-2">
+          {isConnected ? (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => onDisconnect?.(server.id)}
+              disabled={isBusy}
+            >
+              {isDisconnecting ? (
+                <>
+                  <Loader2 className="size-4 animate-spin" />
+                  Disconnecting...
+                </>
+              ) : (
+                "Disconnect"
+              )}
+            </Button>
+          ) : (
+            <Button
+              type="button"
+              size="sm"
+              onClick={() => onConnect?.(server.id)}
+              disabled={isBusy}
+            >
+              {isConnecting ? (
+                <>
+                  <Loader2 className="size-4 animate-spin" />
+                  Redirecting...
+                </>
+              ) : server.connection_status === "expired" ? (
+                "Reconnect"
+              ) : (
+                "Connect"
+              )}
+            </Button>
+          )}
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            onClick={onClearSelection}
+            aria-label="Clear selected server"
+            className="size-8"
+          >
+            <X className="size-4" />
+          </Button>
+        </div>
       </div>
 
       <Tabs value="tools" className="mt-3 min-h-0 flex-1">

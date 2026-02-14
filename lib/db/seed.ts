@@ -70,6 +70,18 @@ export function seedPreconfiguredServers() {
   `);
 
   const runSeed = db.transaction((rows: SeedRow[]) => {
+    const seedIds = rows.map((row) => row.id);
+    if (seedIds.length > 0) {
+      const placeholders = seedIds.map(() => "?").join(", ");
+      db.prepare(
+        `DELETE FROM mcp_servers
+         WHERE is_preconfigured = 1
+           AND id NOT IN (${placeholders})`,
+      ).run(...seedIds);
+    } else {
+      db.prepare("DELETE FROM mcp_servers WHERE is_preconfigured = 1").run();
+    }
+
     for (const row of rows) {
       upsertServer.run(row);
     }
