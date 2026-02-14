@@ -35,7 +35,7 @@ Task 3 (Servers CRUD API) + Task 4 (UI Uses API) → Task 5 (Add Custom Server D
 | 1 | SQLite Setup & Schema | [task-1](task-1-database-setup.md) | done | — |
 | 2 | Seed Preconfigured Servers | [task-2](task-2-seed-preconfigured-servers.md) | done | Task 1 |
 | 3 | Servers CRUD API Routes | [task-3](task-3-servers-api-route.md) | done | Task 2 |
-| 4 | Wire UI to Live API Data | [task-4](task-4-wire-ui-to-live-data.md) | not_started | Task 3 |
+| 4 | Wire UI to Live API Data | [task-4](task-4-wire-ui-to-live-data.md) | done | Task 3 |
 | 5 | Add Custom Server Dialog | [task-5](task-5-add-custom-server-dialog.md) | not_started | Task 3, Task 4 |
 
 ## Definition of Done

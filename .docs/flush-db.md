@@ -1,0 +1,1 @@
+node -e "const Database=require('better-sqlite3'); const db=new Database('./data/mcp-client.db'); db.pragma('wal_checkpoint(FULL)'); console.log('checkpointed');"
