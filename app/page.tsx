@@ -343,6 +343,23 @@ export default function Home() {
     [servers],
   );
 
+  const handleCapabilitiesLoaded = useCallback(
+    (serverId: string, counts: { tools: number; resources: number }) => {
+      setServers((previousServers) =>
+        previousServers.map((server) =>
+          server.id === serverId
+            ? {
+                ...server,
+                tool_count: counts.tools,
+                resource_count: counts.resources,
+              }
+            : server,
+        ),
+      );
+    },
+    [],
+  );
+
   return (
     <div className="flex min-h-screen flex-col overflow-x-hidden bg-background">
       <Header onAddServer={() => setIsAddServerDialogOpen(true)} />
@@ -411,6 +428,7 @@ export default function Home() {
         onExpandedChange={setIsInspectorExpanded}
         onConnect={(serverId) => void handleConnectServer(serverId)}
         onDisconnect={(serverId) => void handleDisconnectServer(serverId)}
+        onCapabilitiesLoaded={handleCapabilitiesLoaded}
         isConnecting={selectedServer ? connectingServerIds.has(selectedServer.id) : false}
         isDisconnecting={selectedServer ? disconnectingServerIds.has(selectedServer.id) : false}
       />
