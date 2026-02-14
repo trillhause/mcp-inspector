@@ -34,7 +34,7 @@ All tasks are sequential — each builds on the previous.
 | # | Task | File | Status | Depends On |
 |---|------|------|--------|------------|
 | 1 | Install Dependencies & Initialize shadcn/ui | [task-1](task-1-install-dependencies.md) | done | — |
-| 2 | Types, Constants & Hardcoded Server Data | [task-2](task-2-database-setup.md) | not_started | Task 1 |
+| 2 | Types, Constants & Hardcoded Server Data | [task-2](task-2-database-setup.md) | done | Task 1 |
 | 3 | App Layout & Server Cards Grid | [task-3](task-3-seed-preconfigured-servers.md) | not_started | Task 2 |
 | 4 | Interactive Inspector Panel | [task-4](task-4-servers-api-route.md) | not_started | Task 3 |
 
