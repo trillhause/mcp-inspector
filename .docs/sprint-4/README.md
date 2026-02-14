@@ -2,7 +2,7 @@
 
 **Goal:** Use `@modelcontextprotocol/sdk` to connect to authenticated MCP servers, discover tools/resources/prompts, cache them, and display them in the inspector panel with tabs.
 
-**Status:** not_started
+**Status:** in_progress
 
 ---
 
@@ -34,7 +34,7 @@ Task 4 + Task 5 → Task 6 (Auto Rediscovery + Refresh Resilience)
 
 | # | Task | File | Status | Depends On |
 |---|------|------|--------|------------|
-| 1 | MCP SDK Client Bootstrap + Authenticated Transport | [task-1](task-1-mcp-sdk-client-bootstrap.md) | not_started | — |
+| 1 | MCP SDK Client Bootstrap + Authenticated Transport | [task-1](task-1-mcp-sdk-client-bootstrap.md) | done | — |
 | 2 | Token-Aware MCP Session + Transport Fallback | [task-2](task-2-token-aware-session-and-fallback.md) | not_started | Task 1 |
 | 3 | Capabilities Discovery (Tools/Resources/Prompts) | [task-3](task-3-capabilities-discovery-service.md) | not_started | Task 2 |
 | 4 | Capabilities Cache + `/api/mcp/[serverId]/capabilities` | [task-4](task-4-capabilities-cache-and-api-route.md) | not_started | Task 3 |

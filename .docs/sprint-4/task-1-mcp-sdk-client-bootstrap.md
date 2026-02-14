@@ -1,7 +1,7 @@
 # Task 1: MCP SDK Client Bootstrap + Authenticated Transport
 
 **Sprint:** 4 - MCP Capabilities Discovery
-**Status:** not_started
+**Status:** done
 **Depends on:** none
 
 ## Description
@@ -38,7 +38,7 @@ Create the baseline MCP client wrapper that can initialize the official SDK clie
 
 ## Acceptance Criteria
 
-- [ ] MCP client wrapper exists and is reusable across API routes
-- [ ] Connected server credentials are required and validated before client init
-- [ ] Authenticated transport requests include bearer token from stored credentials
-- [ ] Error shape is consistent with existing OAuth/API patterns
+- [x] MCP client wrapper exists and is reusable across API routes
+- [x] Connected server credentials are required and validated before client init
+- [x] Authenticated transport requests include bearer token from stored credentials
+- [x] Error shape is consistent with existing OAuth/API patterns
