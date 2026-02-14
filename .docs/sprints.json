@@ -14,7 +14,7 @@
     {
       "id": 2,
       "name": "Database, API & Live Data",
-      "status": "in_progress",
+      "status": "done",
       "goal": "Set up SQLite with schema, seed pre-configured servers, create CRUD API routes, and wire the UI to fetch from real API instead of hardcoded data. Add the 'Add Custom Server' dialog.",
       "testable": "Refresh page → cards load from API (network tab shows GET /api/servers) → open 'Add Server' dialog → enter a URL and name → new card appears in Custom Servers section → delete it → it disappears.",
       "tasks": 5,
@@ -26,7 +26,7 @@
       "status": "not_started",
       "goal": "Implement the complete OAuth 2.0 flow: discovery (RFC 9470 + 8414), PKCE, dynamic client registration, authorization redirect, callback handling, token exchange, and storage. Click 'Connect' on Notion → go through OAuth → come back connected.",
       "testable": "Click 'Connect' on Notion card → redirected to Notion OAuth consent screen → approve → redirected back to app → Notion card shows 'Connected' badge with green status → click 'Disconnect' → card returns to 'Not Connected'.",
-      "tasks": null,
+      "tasks": 6,
       "taskDir": ".docs/sprint-3/"
     },
     {

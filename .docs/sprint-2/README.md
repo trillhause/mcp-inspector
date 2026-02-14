@@ -2,7 +2,7 @@
 
 **Goal:** Set up SQLite with schema, seed pre-configured servers, create CRUD API routes, and wire the UI to fetch from real API instead of hardcoded data. Add the "Add Custom Server" dialog.
 
-**Status:** in_progress
+**Status:** done
 
 ---
 
