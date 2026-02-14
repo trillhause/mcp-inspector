@@ -36,7 +36,7 @@ Task 4 (APIs) + Task 5 (Lifecycle) → Task 6 (UI Connect/Disconnect Flow)
 | 1 | OAuth Discovery (RFC 9470 + RFC 8414) | [task-1](task-1-oauth-discovery.md) | done | — |
 | 2 | PKCE + Authorize Route | [task-2](task-2-authorize-route-with-pkce.md) | done | Task 1 |
 | 3 | Callback Handling + Token Exchange Storage | [task-3](task-3-oauth-callback-token-storage.md) | done | Task 2 |
-| 4 | Server Connect/Disconnect API Routes | [task-4](task-4-connect-disconnect-api.md) | not_started | Task 3 |
+| 4 | Server Connect/Disconnect API Routes | [task-4](task-4-connect-disconnect-api.md) | done | Task 3 |
 | 5 | Token Refresh + Credential Lifecycle Hardening | [task-5](task-5-token-refresh-lifecycle.md) | not_started | Task 3 |
 | 6 | UI Connect/Disconnect + OAuth Callback UX | [task-6](task-6-ui-connect-disconnect-flow.md) | not_started | Task 4, Task 5 |
 

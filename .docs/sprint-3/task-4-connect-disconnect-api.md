@@ -1,7 +1,7 @@
 # Task 4: Server Connect/Disconnect API Routes
 
 **Sprint:** 3 - OAuth Connect Flow (End-to-End)
-**Status:** not_started
+**Status:** done
 **Depends on:** Task 3
 
 ## Description
@@ -36,7 +36,7 @@ Expose server-level connect/disconnect endpoints so the UI can trigger OAuth sta
 
 ## Acceptance Criteria
 
-- [ ] Connect route is wired to OAuth authorize flow
-- [ ] Disconnect route removes credentials and resets status
-- [ ] Server status mapping is correct after state changes
-- [ ] API responses are consistent with frontend expectations
+- [x] Connect route is wired to OAuth authorize flow
+- [x] Disconnect route removes credentials and resets status
+- [x] Server status mapping is correct after state changes
+- [x] API responses are consistent with frontend expectations
