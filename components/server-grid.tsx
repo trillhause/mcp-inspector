@@ -8,6 +8,8 @@ type ServerGridProps = {
   isLoading: boolean;
   selectedServerId: string | null;
   onSelectServer: (serverId: string) => void;
+  onDeleteServer?: (serverId: string) => void;
+  deletingServerIds?: ReadonlySet<string>;
 };
 
 export function ServerGrid({
@@ -15,6 +17,8 @@ export function ServerGrid({
   isLoading,
   selectedServerId,
   onSelectServer,
+  onDeleteServer,
+  deletingServerIds,
 }: ServerGridProps) {
   const preconfiguredServers = servers.filter((server) => server.is_preconfigured);
   const customServers = servers.filter((server) => !server.is_preconfigured);
@@ -36,6 +40,8 @@ export function ServerGrid({
         servers={preconfiguredServers}
         selectedServerId={selectedServerId}
         onSelectServer={onSelectServer}
+        onDeleteServer={onDeleteServer}
+        deletingServerIds={deletingServerIds}
       />
       <ServerSection
         title="Custom Servers"
@@ -43,6 +49,8 @@ export function ServerGrid({
         servers={customServers}
         selectedServerId={selectedServerId}
         onSelectServer={onSelectServer}
+        onDeleteServer={onDeleteServer}
+        deletingServerIds={deletingServerIds}
       />
     </section>
   );
@@ -54,6 +62,8 @@ type ServerSectionProps = {
   servers: McpServer[];
   selectedServerId: string | null;
   onSelectServer: (serverId: string) => void;
+  onDeleteServer?: (serverId: string) => void;
+  deletingServerIds?: ReadonlySet<string>;
 };
 
 function ServerSection({
@@ -62,6 +72,8 @@ function ServerSection({
   servers,
   selectedServerId,
   onSelectServer,
+  onDeleteServer,
+  deletingServerIds,
 }: ServerSectionProps) {
   return (
     <section className="space-y-4">
@@ -74,6 +86,8 @@ function ServerSection({
               server={server}
               isSelected={selectedServerId === server.id}
               onSelect={onSelectServer}
+              onDelete={onDeleteServer}
+              isDeleting={deletingServerIds?.has(server.id) ?? false}
             />
           ))}
         </div>

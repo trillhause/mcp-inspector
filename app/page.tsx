@@ -2,11 +2,27 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 
+import { AddServerDialog } from "@/components/add-server-dialog";
 import { Header } from "@/components/header";
 import { InspectorPanel } from "@/components/inspector-panel";
 import { ServerGrid } from "@/components/server-grid";
 import { Button } from "@/components/ui/button";
 import type { McpServer } from "@/lib/types";
+
+function sortServers(serverList: McpServer[]) {
+  return [...serverList].sort((a, b) => {
+    if (a.is_preconfigured !== b.is_preconfigured) {
+      return a.is_preconfigured ? -1 : 1;
+    }
+
+    const nameSort = a.name.localeCompare(b.name, undefined, { sensitivity: "base" });
+    if (nameSort !== 0) {
+      return nameSort;
+    }
+
+    return a.id.localeCompare(b.id);
+  });
+}
 
 export default function Home() {
   const [servers, setServers] = useState<McpServer[]>([]);
@@ -14,6 +30,8 @@ export default function Home() {
   const [serversError, setServersError] = useState<string | null>(null);
   const [selectedServerId, setSelectedServerId] = useState<string | null>(null);
   const [isInspectorExpanded, setIsInspectorExpanded] = useState(false);
+  const [isAddServerDialogOpen, setIsAddServerDialogOpen] = useState(false);
+  const [deletingServerIds, setDeletingServerIds] = useState<Set<string>>(new Set());
 
   const loadServers = useCallback(async (signal?: AbortSignal) => {
     setServersError(null);
@@ -39,7 +57,7 @@ export default function Home() {
         throw new Error("Invalid server response payload");
       }
 
-      setServers(payload.servers);
+      setServers(sortServers(payload.servers));
     } catch (error) {
       if (error instanceof DOMException && error.name === "AbortError") {
         return;
@@ -91,9 +109,71 @@ export default function Home() {
     setIsInspectorExpanded(true);
   };
 
+  const handleServerCreated = useCallback((server: McpServer) => {
+    setServers((previousServers) =>
+      sortServers([
+        ...previousServers.filter((item) => item.id !== server.id),
+        server,
+      ]),
+    );
+    setSelectedServerId(server.id);
+    setIsInspectorExpanded(true);
+    setServersError(null);
+  }, []);
+
+  const handleDeleteServer = useCallback(
+    async (serverId: string) => {
+      const server = servers.find((item) => item.id === serverId);
+      if (!server || server.is_preconfigured) {
+        return;
+      }
+
+      const shouldDelete = window.confirm(`Delete "${server.name}"?`);
+      if (!shouldDelete) {
+        return;
+      }
+
+      setServersError(null);
+      setDeletingServerIds((previousIds) => {
+        const nextIds = new Set(previousIds);
+        nextIds.add(serverId);
+        return nextIds;
+      });
+
+      try {
+        const response = await fetch(`/api/servers/${encodeURIComponent(serverId)}`, {
+          method: "DELETE",
+        });
+
+        const payload = (await response.json().catch(() => null)) as {
+          error?: { message?: string };
+        } | null;
+
+        if (!response.ok) {
+          throw new Error(payload?.error?.message ?? "Failed to delete server");
+        }
+
+        setServers((previousServers) =>
+          previousServers.filter((item) => item.id !== serverId),
+        );
+      } catch (error) {
+        setServersError(
+          error instanceof Error ? error.message : "Failed to delete server",
+        );
+      } finally {
+        setDeletingServerIds((previousIds) => {
+          const nextIds = new Set(previousIds);
+          nextIds.delete(serverId);
+          return nextIds;
+        });
+      }
+    },
+    [servers],
+  );
+
   return (
     <div className="flex min-h-screen flex-col overflow-x-hidden bg-background">
-      <Header />
+      <Header onAddServer={() => setIsAddServerDialogOpen(true)} />
       <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-6 pb-20 sm:px-6 lg:px-8">
         <div className="space-y-4">
           {serversError ? (
@@ -101,9 +181,7 @@ export default function Home() {
               className="flex flex-col gap-3 rounded-lg border border-destructive/40 bg-destructive/5 p-4 sm:flex-row sm:items-center sm:justify-between"
               role="alert"
             >
-              <p className="text-sm text-destructive">
-                Failed to load servers: {serversError}
-              </p>
+              <p className="text-sm text-destructive">Error: {serversError}</p>
               <Button
                 type="button"
                 variant="outline"
@@ -119,6 +197,8 @@ export default function Home() {
             isLoading={isLoadingServers}
             selectedServerId={selectedServerId}
             onSelectServer={handleSelectServer}
+            onDeleteServer={(serverId) => void handleDeleteServer(serverId)}
+            deletingServerIds={deletingServerIds}
           />
         </div>
       </main>
@@ -127,6 +207,11 @@ export default function Home() {
         selectedServer={selectedServer}
         onClearSelection={() => setSelectedServerId(null)}
         onExpandedChange={setIsInspectorExpanded}
+      />
+      <AddServerDialog
+        open={isAddServerDialogOpen}
+        onOpenChange={setIsAddServerDialogOpen}
+        onServerCreated={handleServerCreated}
       />
     </div>
   );
