@@ -37,10 +37,10 @@ A web-based universal MCP (Model Context Protocol) client that enables users to 
 ├─────────────────────────────────────────────────────────────────────┤
 │  Frontend (React + shadcn/ui)          Backend (API Routes)         │
 │  ┌─────────────────────────────┐      ┌─────────────────────────┐  │
-│  │ - Server List View          │      │ - OAuth Discovery       │  │
-│  │ - Inspector Panel (bottom)  │◄────►│ - Token Exchange         │  │
-│  │ - Tool/Resource Explorer    │      │ - MCP Connection        │  │
-│  │ - Execution Interface       │      │ - Tool/Resource Calls   │  │
+│  │ - Server Sidebar            │      │ - OAuth Discovery       │  │
+│  │ - Main Details Panel        │◄────►│ - Token Exchange         │  │
+│  │ - Capability Tabs           │      │ - MCP Connection        │  │
+│  │ - Tool/Resource Execution   │      │ - Tool/Resource Calls   │  │
 │  └─────────────────────────────┘      └─────────────────────────┘  │
 │                   ▲                                 ▲                │
 │                   │                                 │                │
@@ -251,60 +251,27 @@ CREATE INDEX idx_execution_history_server ON execution_history(mcp_server_id, ex
 
 ---
 
-## UI/UX Design (Inspector Style)
+## UI/UX Design (Sidebar + Main Panel)
 
 ### Layout Structure
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────┐
-│  Header: MCP Client                          [Add Server] [Settings]    │
+│ Header: MCP Client                                         [Add Server]│
 ├─────────────────────────────────────────────────────────────────────────┤
-│                                                                         │
-│  ┌─────────────────────────────────────────────────────────────────┐   │
-│  │  Main Content Area                                              │   │
-│  │                                                                  │   │
-│  │  ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────┐ │   │
-│  │  │   Notion        │  │   GitHub        │  │   Sentry        │ │   │
-│  │  │   [Connected]   │  │   [Connect]     │  │   [Connect]     │ │   │
-│  │  │   12 tools      │  │   -- tools      │  │   -- tools      │ │   │
-│  │  └─────────────────┘  └─────────────────┘  └─────────────────┘ │   │
-│  │                                                                  │   │
-│  │  ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────┐ │   │
-│  │  │   Canva         │  │   Figma         │  │   PostHog       │ │   │
-│  │  │   [Connect]     │  │   [Connect]     │  │   [Connect]     │ │   │
-│  │  └─────────────────┘  └─────────────────┘  └─────────────────┘ │   │
-│  │                                                                  │   │
-│  │  ┌─────────────────────────────────────────────────────────────┐│   │
-│  │  │  Custom Servers                                              ││   │
-│  │  │  [+ Add custom MCP server by URL]                            ││   │
-│  │  └─────────────────────────────────────────────────────────────┘│   │
-│  └─────────────────────────────────────────────────────────────────┘   │
-│                                                                         │
-├─────────────────────────────────────────────────────────────────────────┤
-│  Inspector Panel (expandable, ~40% height)                              │
-│  ┌─────────────────────────────────────────────────────────────────┐   │
-│  │  Notion MCP Server                                    [─][□][×]  │   │
-│  │  ┌─────────┬─────────────────────────────────────────────────┐  │   │
-│  │  │ Tools   │  notion_databases_query   [Execute ▼]          │  │   │
-│  │  │         │  notion_pages_create     [Execute ▼]          │  │   │
-│  │  │         │  notion_search           [Execute ▼]          │  │   │
-│  │  │         │  ...                                              │  │   │
-│  │  ├─────────┼─────────────────────────────────────────────────┤  │   │
-│  │  │ Resources│  database://pages/abc123    [Read]             │  │   │
-│  │  │         │  page://blocks/def456       [Read]             │  │   │
-│  │  │         │  ...                                              │  │   │
-│  │  ├─────────┴─────────────────────────────────────────────────┤  │   │
-│  │  │                                                          │  │   │
-│  │  │  Execution Result:                                       │  │   │
-│  │  │  ┌────────────────────────────────────────────────────┐  │  │   │
-│  │  │  │ {                                                │  │  │   │
-│  │  │  │   "result": "success",                          │  │  │   │
-│  │  │  │   "data": { ... }                               │  │  │   │
-│  │  │  │ }                                                │  │  │   │
-│  │  │  └────────────────────────────────────────────────────┘  │  │   │
-│  │  │                                                          │  │   │
-│  │  └──────────────────────────────────────────────────────────┘  │   │
-│  └─────────────────────────────────────────────────────────────────┘   │
+│ ┌────────────────────────────┬────────────────────────────────────────┐ │
+│ │ Sidebar                    │ Main Panel                             │ │
+│ │ Search servers...          │ [Icon] Notion MCP      [Connected]     │ │
+│ │ -------------------------- │ URL: https://mcp.notion.com/mcp        │ │
+│ │ PRE-CONFIGURED             │ [Disconnect] [Refresh capabilities]    │ │
+│ │ > Notion         Connected │ -------------------------------------- │ │
+│ │ > GitHub         Connect   │ Tabs: [Tools] [Resources] [Prompts]    │ │
+│ │ > Sentry         Reconnect │ - capability rows                       │ │
+│ │                            │ - loading / empty / error states        │ │
+│ │ CUSTOM                     │ - execution result pane (Sprint 6+)     │ │
+│ │ > Internal API   Connect   │                                          │ │
+│ │ > Team Wiki      Connected │                                          │ │
+│ └────────────────────────────┴────────────────────────────────────────┘ │
 └─────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -312,9 +279,9 @@ CREATE INDEX idx_execution_history_server ON execution_history(mcp_server_id, ex
 
 | Component | Description |
 |-----------|-------------|
-| **Server Card** | Visual card for each MCP server showing name, icon, connection status, and available tool count |
+| **Server List Item** | Compact row in the sidebar showing name, icon, connection status, and quick actions |
 | **Connect Button** | Triggers OAuth flow for unconnected servers; shows "Connected" with timestamp for active ones |
-| **Inspector Panel** | Collapsible bottom panel showing details of selected server (tools, resources, execution results) |
+| **Details Panel** | Main content panel showing selected server metadata, capabilities tabs, and execution workspace |
 | **Tool Executor** | Form-based UI for executing tools with parameter inputs based on tool schema |
 | **Resource Reader** | Read-only view for resource contents |
 | **Add Server Modal** | Form to add custom MCP servers by URL with automatic OAuth discovery |
@@ -370,7 +337,7 @@ CREATE INDEX idx_execution_history_server ON execution_history(mcp_server_id, ex
 - [ ] Set up Next.js project with Bun, TypeScript, Tailwind, shadcn/ui
 - [ ] Configure SQLite database with schema
 - [ ] Create database seed file with pre-configured servers
-- [ ] Set up basic UI layout (header, main area, inspector panel)
+- [ ] Set up basic UI layout (header, sidebar, main panel)
 - [ ] Implement server list view
 
 ### Phase 2: OAuth Integration (Week 2)
@@ -389,15 +356,23 @@ CREATE INDEX idx_execution_history_server ON execution_history(mcp_server_id, ex
 - [ ] Handle token refresh on 401/unauthorized errors
 - [ ] Implement automatic transport fallback (streamable → SSE)
 
-### Phase 4: Tool & Resource Exploration (Week 4)
-- [ ] Build tools/resources list view in inspector panel
+### Phase 4: UI Navigation Refresh (Week 4)
+- [ ] Replace bottom inspector interaction with sidebar + main panel layout
+- [ ] Implement grouped server navigation (pre-configured + custom) in sidebar
+- [ ] Implement mobile slide-over server list with full-width detail panel
+- [ ] Preserve existing capabilities tabs, refresh, and warning/error states in main panel
+- [ ] Keep connect/disconnect/delete flows available from the new layout
+- [ ] Validate keyboard navigation, focus, and responsive behavior
+
+### Phase 5: Tool & Resource Exploration (Week 5)
+- [ ] Build tools/resources list view in main details panel
 - [ ] Create dynamic form generator for tool parameters
 - [ ] Implement tool execution API route
 - [ ] Build resource reading API route
 - [ ] Display execution results with JSON syntax highlighting
 - [ ] Add execution history tracking
 
-### Phase 5: Polish & Testing (Week 5)
+### Phase 6: Polish & Testing (Week 6)
 - [ ] Add loading states and error handling
 - [ ] Implement token expiry warnings
 - [ ] Add custom server addition flow
@@ -446,8 +421,9 @@ mcp-auth-experiment/
 │   └── globals.css
 ├── components/
 │   ├── ui/                          # shadcn/ui components
-│   ├── server-card.tsx
-│   ├── inspector-panel.tsx
+│   ├── server-sidebar.tsx
+│   ├── server-list-item.tsx
+│   ├── server-details-panel.tsx
 │   ├── tool-executor.tsx
 │   ├── resource-reader.tsx
 │   └── add-server-modal.tsx
@@ -501,4 +477,4 @@ mcp-auth-experiment/
 
 ---
 
-*Last Updated: 2025-02-14*
+*Last Updated: 2026-02-14*
