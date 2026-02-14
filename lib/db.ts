@@ -41,6 +41,7 @@ CREATE TABLE IF NOT EXISTS oauth_credentials (
   access_token TEXT NOT NULL,
   refresh_token TEXT,
   token_expires_at TEXT,
+  scopes TEXT,
   oauth_metadata TEXT NOT NULL,
   protected_resource_url TEXT,
   authorization_server_url TEXT,
@@ -118,6 +119,24 @@ function ensureOAuthStateColumns(db: SqliteDatabase) {
   }
 }
 
+function ensureOAuthCredentialColumns(db: SqliteDatabase) {
+  const tableInfo = db
+    .prepare("PRAGMA table_info(oauth_credentials)")
+    .all() as Array<{ name: string }>;
+  const existingColumns = new Set(tableInfo.map((column) => column.name));
+
+  const requiredColumns = ["scopes TEXT"];
+
+  for (const columnDefinition of requiredColumns) {
+    const [columnName] = columnDefinition.split(" ");
+    if (!columnName || existingColumns.has(columnName)) {
+      continue;
+    }
+
+    db.exec(`ALTER TABLE oauth_credentials ADD COLUMN ${columnDefinition}`);
+  }
+}
+
 export function getDb() {
   if (!globalThis.__mcpClientDb) {
     globalThis.__mcpClientDb = createDatabaseConnection();
@@ -134,6 +153,7 @@ export function initializeDatabase() {
   const db = getDb();
   db.exec(SCHEMA_SQL);
   ensureOAuthStateColumns(db);
+  ensureOAuthCredentialColumns(db);
   globalThis.__mcpClientDbInitialized = true;
 }
 

@@ -33,6 +33,15 @@ type CreateOAuthStateInput = {
   authorizationServerUrl: string;
 };
 
+type OAuthStateConsumptionResult =
+  | { status: "consumed"; state: PersistedOAuthState }
+  | { status: "missing" | "expired" };
+
+function isExpired(expiresAtIso: string, now = new Date()) {
+  const expiresAtMs = Date.parse(expiresAtIso);
+  return Number.isNaN(expiresAtMs) || expiresAtMs <= now.getTime();
+}
+
 export function cleanupExpiredOAuthState(now = new Date()) {
   const result = dbExecute("DELETE FROM oauth_state WHERE expires_at <= @now_iso", {
     now_iso: now.toISOString(),
@@ -102,4 +111,29 @@ export function createOAuthState(input: CreateOAuthStateInput) {
   }
 
   return storedState;
+}
+
+export function consumeOAuthState(stateValue: string, now = new Date()): OAuthStateConsumptionResult {
+  const normalizedStateValue = stateValue.trim();
+  if (!normalizedStateValue) {
+    return { status: "missing" };
+  }
+
+  const storedState = dbQueryFirst<PersistedOAuthState>(
+    "SELECT * FROM oauth_state WHERE state_value = ? LIMIT 1",
+    [normalizedStateValue],
+  );
+
+  if (!storedState) {
+    return { status: "missing" };
+  }
+
+  dbExecute("DELETE FROM oauth_state WHERE id = ?", [storedState.id]);
+
+  if (isExpired(storedState.expires_at, now)) {
+    return { status: "expired" };
+  }
+
+  cleanupExpiredOAuthState(now);
+  return { status: "consumed", state: storedState };
 }
