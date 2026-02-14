@@ -5,7 +5,7 @@
     {
       "id": 1,
       "name": "Interactive UI Shell",
-      "status": "not_started",
+      "status": "in_progress",
       "goal": "Install deps, init shadcn/ui, and build the full visual shell with hardcoded server data. No database or API yet — just a working, interactive UI you can click through.",
       "testable": "Open localhost:3000 → see 6 server cards in a grid → click a card → inspector panel slides up showing that server's details → click another card → inspector updates → collapse/expand inspector.",
       "tasks": 4,
