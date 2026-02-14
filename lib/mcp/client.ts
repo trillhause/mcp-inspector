@@ -9,6 +9,7 @@ import {
 import type { Transport } from "@modelcontextprotocol/sdk/shared/transport.js";
 
 import { dbQueryFirst } from "@/lib/db";
+import { OAuthRefreshError, refreshOAuthCredential } from "@/lib/oauth/refresh";
 import { getTransportPreferenceOrder, type ServerTransport } from "@/lib/servers";
 
 const MCP_CLIENT_INFO = {
@@ -53,6 +54,8 @@ export type ConnectedMcpClient = {
   transport: Transport;
   connection: McpConnectionContext & {
     selected_transport: McpTransportMode;
+    attempted_transports: McpTransportMode[];
+    refreshed_before_connect: boolean;
   };
   close: () => Promise<void>;
 };
@@ -81,6 +84,26 @@ export class McpClientError extends Error {
 
 export function isMcpClientError(error: unknown): error is McpClientError {
   return error instanceof McpClientError;
+}
+
+function logMcpSessionEvent(
+  level: "info" | "warn" | "error",
+  event: string,
+  context: Record<string, unknown>,
+) {
+  const message = `[mcp-session] ${event}`;
+
+  if (level === "warn") {
+    console.warn(message, context);
+    return;
+  }
+
+  if (level === "error") {
+    console.error(message, context);
+    return;
+  }
+
+  console.info(message, context);
 }
 
 function readServerById(mcpServerId: string) {
@@ -214,30 +237,26 @@ function mapConnectFailure(error: unknown, selectedTransport: McpTransportMode):
   });
 }
 
-export async function createMcpClientByServerId(
-  input: string | CreateMcpClientInput,
+function addDiagnosticDetails(details: string[] | undefined, extra: string[]) {
+  const merged = [...(details ?? []), ...extra];
+  return merged.length > 0 ? merged : undefined;
+}
+
+function withSessionDiagnostics(error: McpClientError, extra: string[]) {
+  return new McpClientError(error.code, error.message, {
+    httpStatus: error.httpStatus,
+    details: addDiagnosticDetails(error.details, extra),
+    cause: error,
+  });
+}
+
+async function connectWithTransport(
+  context: McpConnectionContext,
+  accessToken: string,
+  selectedTransport: McpTransportMode,
 ): Promise<ConnectedMcpClient> {
-  const mcpServerId = typeof input === "string" ? input : input.mcpServerId;
-  const transportOverride = typeof input === "string" ? undefined : input.transport;
-  const resolvedConnection = resolveConnectionContext(mcpServerId);
-  const connection = resolvedConnection.context;
-  const selectedTransport = transportOverride ?? connection.transport_candidates[0];
-
-  if (!selectedTransport) {
-    throw new McpClientError("MCP_CONNECT_FAILED", "No valid transport is configured for this server", {
-      httpStatus: 500,
-    });
-  }
-
-  if (!connection.transport_candidates.includes(selectedTransport)) {
-    throw new McpClientError("MCP_CONNECT_FAILED", "Requested transport is not allowed for this server", {
-      httpStatus: 400,
-      details: [`requested_transport=${selectedTransport}`],
-    });
-  }
-
-  const requestInit = createAuthenticatedRequestInit(resolvedConnection.accessToken);
-  const transport = createTransport(connection.mcp_url, selectedTransport, requestInit);
+  const requestInit = createAuthenticatedRequestInit(accessToken);
+  const transport = createTransport(context.mcp_url, selectedTransport, requestInit);
   const client = new Client(MCP_CLIENT_INFO);
 
   try {
@@ -251,9 +270,277 @@ export async function createMcpClientByServerId(
     client,
     transport,
     connection: {
-      ...connection,
+      ...context,
       selected_transport: selectedTransport,
+      attempted_transports: [selectedTransport],
+      refreshed_before_connect: false,
     },
     close: () => transport.close(),
   };
+}
+
+async function refreshBeforeConnect(mcpServerId: string) {
+  try {
+    const result = await refreshOAuthCredential({
+      mcpServerId,
+    });
+
+    if (result.status === "reconnect_required") {
+      throw new McpClientError(
+        "AUTH_REQUIRED",
+        "Stored credentials require reconnect before opening an MCP session",
+        {
+          httpStatus: 401,
+          details: [
+            "reconnect_required=true",
+            `refresh_reason=${result.refresh_reason}`,
+            "Reconnect the server to continue",
+          ],
+        },
+      );
+    }
+
+    return {
+      refreshed: result.refreshed,
+      refreshReason: result.refresh_reason,
+    };
+  } catch (error) {
+    if (error instanceof McpClientError) {
+      throw error;
+    }
+
+    if (error instanceof OAuthRefreshError) {
+      if (error.code === "NOT_CONNECTED") {
+        throw new McpClientError("NOT_CONNECTED", "Server is not connected", {
+          httpStatus: 409,
+          details: ["OAuth credentials not found for this server"],
+          cause: error,
+        });
+      }
+
+      // Refresh endpoint failures are logged, but we still attempt session bootstrap with the current token.
+      logMcpSessionEvent("warn", "preconnect_refresh_failed", {
+        mcp_server_id: mcpServerId,
+        code: error.code,
+        http_status: error.httpStatus,
+      });
+      return {
+        refreshed: false,
+        refreshReason: null as string | null,
+      };
+    }
+
+    throw error;
+  }
+}
+
+async function refreshAndRetryOnAuthFailure(
+  mcpServerId: string,
+  selectedTransport: McpTransportMode,
+) {
+  try {
+    const result = await refreshOAuthCredential({
+      mcpServerId,
+      force: true,
+    });
+
+    if (result.status === "reconnect_required") {
+      throw new McpClientError("AUTH_REQUIRED", "Authentication requires reconnect", {
+        httpStatus: 401,
+        details: [
+          `transport=${selectedTransport}`,
+          "reconnect_required=true",
+          `refresh_reason=${result.refresh_reason}`,
+        ],
+      });
+    }
+
+    return;
+  } catch (error) {
+    if (error instanceof McpClientError) {
+      throw error;
+    }
+
+    if (error instanceof OAuthRefreshError) {
+      if (error.code === "NOT_CONNECTED") {
+        throw new McpClientError("NOT_CONNECTED", "Server is not connected", {
+          httpStatus: 409,
+          details: ["OAuth credentials not found for this server"],
+          cause: error,
+        });
+      }
+
+      throw new McpClientError("AUTH_REQUIRED", "Authentication failed while refreshing credentials", {
+        httpStatus: 401,
+        details: addDiagnosticDetails(error.details, [`transport=${selectedTransport}`]),
+        cause: error,
+      });
+    }
+
+    throw error;
+  }
+}
+
+export async function createMcpClientByServerId(
+  input: string | CreateMcpClientInput,
+): Promise<ConnectedMcpClient> {
+  const mcpServerId = typeof input === "string" ? input : input.mcpServerId;
+  const transportOverride = typeof input === "string" ? undefined : input.transport;
+  const initialConnection = resolveConnectionContext(mcpServerId);
+  const configuredConnection = initialConnection.context;
+  const selectedTransport = transportOverride ?? configuredConnection.transport_candidates[0];
+
+  if (!selectedTransport) {
+    throw new McpClientError("MCP_CONNECT_FAILED", "No valid transport is configured for this server", {
+      httpStatus: 500,
+    });
+  }
+
+  if (!configuredConnection.transport_candidates.includes(selectedTransport)) {
+    throw new McpClientError("MCP_CONNECT_FAILED", "Requested transport is not allowed for this server", {
+      httpStatus: 400,
+      details: [`requested_transport=${selectedTransport}`],
+    });
+  }
+
+  const preConnectRefresh = await refreshBeforeConnect(mcpServerId);
+  const baseConnection = resolveConnectionContext(mcpServerId);
+  const candidateTransports = transportOverride
+    ? [transportOverride]
+    : [...baseConnection.context.transport_candidates];
+  const attemptedTransports: McpTransportMode[] = [];
+  let forcedAuthRetryUsed = false;
+  let lastConnectFailure: McpClientError | null = null;
+
+  for (let index = 0; index < candidateTransports.length; index += 1) {
+    const candidateTransport = candidateTransports[index];
+    if (!candidateTransport) {
+      continue;
+    }
+
+    attemptedTransports.push(candidateTransport);
+    const isFallbackAttempt = index > 0;
+    if (isFallbackAttempt) {
+      logMcpSessionEvent("warn", "transport_fallback_attempt", {
+        mcp_server_id: mcpServerId,
+        selected_transport: candidateTransport,
+        attempted_transports: attemptedTransports.join(","),
+      });
+    }
+
+    const currentConnection = resolveConnectionContext(mcpServerId);
+
+    try {
+      const session = await connectWithTransport(
+        currentConnection.context,
+        currentConnection.accessToken,
+        candidateTransport,
+      );
+
+      logMcpSessionEvent("info", "session_connected", {
+        mcp_server_id: mcpServerId,
+        selected_transport: candidateTransport,
+        attempted_transports: attemptedTransports.join(","),
+      });
+
+      return {
+        ...session,
+        connection: {
+          ...session.connection,
+          attempted_transports: [...attemptedTransports],
+          refreshed_before_connect: preConnectRefresh.refreshed,
+        },
+      };
+    } catch (error) {
+      if (!(error instanceof McpClientError)) {
+        throw error;
+      }
+
+      lastConnectFailure = error;
+      const hasFallbackCandidate = index < candidateTransports.length - 1;
+
+      if (error.code === "AUTH_REQUIRED") {
+        logMcpSessionEvent("warn", "session_auth_failed", {
+          mcp_server_id: mcpServerId,
+          selected_transport: candidateTransport,
+          attempted_transports: attemptedTransports.join(","),
+        });
+
+        if (forcedAuthRetryUsed) {
+          throw withSessionDiagnostics(error, [
+            `attempted_transports=${attemptedTransports.join(",")}`,
+            "auth_refresh_retry_used=true",
+          ]);
+        }
+
+        forcedAuthRetryUsed = true;
+        await refreshAndRetryOnAuthFailure(mcpServerId, candidateTransport);
+
+        const refreshedConnection = resolveConnectionContext(mcpServerId);
+        try {
+          const retriedSession = await connectWithTransport(
+            refreshedConnection.context,
+            refreshedConnection.accessToken,
+            candidateTransport,
+          );
+
+          logMcpSessionEvent("info", "session_connected_after_auth_retry", {
+            mcp_server_id: mcpServerId,
+            selected_transport: candidateTransport,
+          });
+
+          return {
+            ...retriedSession,
+            connection: {
+              ...retriedSession.connection,
+              attempted_transports: [...attemptedTransports],
+              refreshed_before_connect: true,
+            },
+          };
+        } catch (retryError) {
+          if (!(retryError instanceof McpClientError)) {
+            throw retryError;
+          }
+
+          lastConnectFailure = retryError;
+          if (retryError.code === "AUTH_REQUIRED") {
+            throw withSessionDiagnostics(retryError, [
+              `attempted_transports=${attemptedTransports.join(",")}`,
+              "auth_refresh_retry_used=true",
+            ]);
+          }
+
+          if (!hasFallbackCandidate) {
+            throw withSessionDiagnostics(retryError, [
+              `attempted_transports=${attemptedTransports.join(",")}`,
+              "auth_refresh_retry_used=true",
+            ]);
+          }
+
+          continue;
+        }
+      }
+
+      logMcpSessionEvent("warn", "session_connect_failed", {
+        mcp_server_id: mcpServerId,
+        selected_transport: candidateTransport,
+        attempted_transports: attemptedTransports.join(","),
+      });
+
+      if (!hasFallbackCandidate) {
+        throw withSessionDiagnostics(error, [`attempted_transports=${attemptedTransports.join(",")}`]);
+      }
+    }
+  }
+
+  if (lastConnectFailure) {
+    throw withSessionDiagnostics(lastConnectFailure, [
+      `attempted_transports=${attemptedTransports.join(",")}`,
+    ]);
+  }
+
+  throw new McpClientError("MCP_CONNECT_FAILED", "Failed to connect to MCP server", {
+    httpStatus: 502,
+    details: [`attempted_transports=${attemptedTransports.join(",")}`],
+  });
 }
