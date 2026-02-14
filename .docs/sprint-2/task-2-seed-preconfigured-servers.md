@@ -1,7 +1,7 @@
 # Task 2: Seed Preconfigured Servers
 
 **Sprint:** 2 - Database, API & Live Data
-**Status:** not_started
+**Status:** done
 **Depends on:** Task 1
 
 ## Description
@@ -32,7 +32,7 @@ Insert the pre-configured MCP servers into SQLite so API/UI can read a real pers
 
 ## Acceptance Criteria
 
-- [ ] All pre-configured servers are persisted in SQLite
-- [ ] Seeding is idempotent
-- [ ] Seed source remains `lib/data/preconfigured-servers.ts`
-- [ ] Pre-configured servers are ready for `/api/servers` responses
+- [x] All pre-configured servers are persisted in SQLite
+- [x] Seeding is idempotent
+- [x] Seed source remains `lib/data/preconfigured-servers.ts`
+- [x] Pre-configured servers are ready for `/api/servers` responses

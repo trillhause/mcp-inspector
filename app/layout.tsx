@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 
 import { initializeDatabase } from "@/lib/db";
+import { seedPreconfiguredServers } from "@/lib/db/seed";
 
 import "./globals.css";
 
@@ -16,6 +17,7 @@ export default function RootLayout({
 }>) {
   if (process.env.NODE_ENV === "development") {
     initializeDatabase();
+    seedPreconfiguredServers();
   }
 
   return (
