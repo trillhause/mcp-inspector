@@ -1,0 +1,60 @@
+{
+  "project": "MCP Client Web Application",
+  "totalSprints": 6,
+  "sprints": [
+    {
+      "id": 1,
+      "name": "Interactive UI Shell",
+      "status": "not_started",
+      "goal": "Install deps, init shadcn/ui, and build the full visual shell with hardcoded server data. No database or API yet — just a working, interactive UI you can click through.",
+      "testable": "Open localhost:3000 → see 6 server cards in a grid → click a card → inspector panel slides up showing that server's details → click another card → inspector updates → collapse/expand inspector.",
+      "tasks": 4,
+      "taskDir": ".docs/sprint-1/"
+    },
+    {
+      "id": 2,
+      "name": "Database, API & Live Data",
+      "status": "not_started",
+      "goal": "Set up SQLite with schema, seed pre-configured servers, create CRUD API routes, and wire the UI to fetch from real API instead of hardcoded data. Add the 'Add Custom Server' dialog.",
+      "testable": "Refresh page → cards load from API (network tab shows GET /api/servers) → open 'Add Server' dialog → enter a URL and name → new card appears in Custom Servers section → delete it → it disappears.",
+      "tasks": null,
+      "taskDir": ".docs/sprint-2/"
+    },
+    {
+      "id": 3,
+      "name": "OAuth Connect Flow (End-to-End)",
+      "status": "not_started",
+      "goal": "Implement the complete OAuth 2.0 flow: discovery (RFC 9470 + 8414), PKCE, dynamic client registration, authorization redirect, callback handling, token exchange, and storage. Click 'Connect' on Notion → go through OAuth → come back connected.",
+      "testable": "Click 'Connect' on Notion card → redirected to Notion OAuth consent screen → approve → redirected back to app → Notion card shows 'Connected' badge with green status → click 'Disconnect' → card returns to 'Not Connected'.",
+      "tasks": null,
+      "taskDir": ".docs/sprint-3/"
+    },
+    {
+      "id": 4,
+      "name": "MCP Capabilities Discovery",
+      "status": "not_started",
+      "goal": "Use @modelcontextprotocol/sdk to connect to authenticated MCP servers, discover tools/resources/prompts, cache them, and display in the inspector panel with tabs.",
+      "testable": "Connect to Notion → card updates to show '12 tools' → click card → inspector shows Tools tab with list of tool names and descriptions → click Resources tab → see available resources → reconnect after token refresh works transparently.",
+      "tasks": null,
+      "taskDir": ".docs/sprint-4/"
+    },
+    {
+      "id": 5,
+      "name": "Tool Execution & Resource Reading",
+      "status": "not_started",
+      "goal": "Build dynamic forms from tool schemas, execute tools against MCP servers, read resources, and display results with JSON syntax highlighting.",
+      "testable": "Click a tool (e.g., notion_search) → form appears with input fields matching the schema → fill in params → click Execute → see JSON result with syntax highlighting → click a resource → see its contents rendered → execution appears in history.",
+      "tasks": null,
+      "taskDir": ".docs/sprint-5/"
+    },
+    {
+      "id": 6,
+      "name": "Polish & Multi-Server Testing",
+      "status": "not_started",
+      "goal": "Loading states, error handling, token expiry warnings, execution history view, server settings, and test with multiple MCP servers (GitHub, Sentry, etc).",
+      "testable": "Connect to 2+ servers → switch between them in inspector → see loading skeletons during data fetch → disconnect with expired token shows warning → execution history tab shows past runs → error states show helpful messages.",
+      "tasks": null,
+      "taskDir": ".docs/sprint-6/"
+    }
+  ]
+}
