@@ -23,7 +23,7 @@
     {
       "id": 3,
       "name": "OAuth Connect Flow (End-to-End)",
-      "status": "not_started",
+      "status": "in_progress",
       "goal": "Implement the complete OAuth 2.0 flow: discovery (RFC 9470 + 8414), PKCE, dynamic client registration, authorization redirect, callback handling, token exchange, and storage. Click 'Connect' on Notion → go through OAuth → come back connected.",
       "testable": "Click 'Connect' on Notion card → redirected to Notion OAuth consent screen → approve → redirected back to app → Notion card shows 'Connected' badge with green status → click 'Disconnect' → card returns to 'Not Connected'.",
       "tasks": 6,
