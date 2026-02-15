@@ -8,6 +8,7 @@ import { Header } from "@/components/header";
 import { ServerDetailsPanel } from "@/components/server-details-panel";
 import { ServerGrid } from "@/components/server-grid";
 import { Button } from "@/components/ui/button";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import type { McpServer } from "@/lib/types";
 
 const OAUTH_QUERY_PARAMS = [
@@ -44,6 +45,7 @@ export default function Home() {
   const [oauthNotice, setOauthNotice] = useState<OAuthNotice | null>(null);
   const [selectedServerId, setSelectedServerId] = useState<string | null>(null);
   const [isAddServerDialogOpen, setIsAddServerDialogOpen] = useState(false);
+  const [isServerSheetOpen, setIsServerSheetOpen] = useState(false);
   const [deletingServerIds, setDeletingServerIds] = useState<Set<string>>(new Set());
   const [connectingServerIds, setConnectingServerIds] = useState<Set<string>>(new Set());
   const [disconnectingServerIds, setDisconnectingServerIds] = useState<Set<string>>(new Set());
@@ -164,6 +166,7 @@ export default function Home() {
 
   const handleSelectServer = (serverId: string) => {
     setSelectedServerId(serverId);
+    setIsServerSheetOpen(false);
   };
 
   const handleServerCreated = useCallback((server: McpServer) => {
@@ -357,7 +360,10 @@ export default function Home() {
 
   return (
     <div className="flex min-h-screen flex-col bg-background">
-      <Header onAddServer={() => setIsAddServerDialogOpen(true)} />
+      <Header
+        onAddServer={() => setIsAddServerDialogOpen(true)}
+        onOpenServerSheet={() => setIsServerSheetOpen(true)}
+      />
       <div className="flex flex-1 overflow-hidden">
         <aside className="hidden md:flex md:w-72 lg:w-80 flex-col border-r">
           <div className="flex-1 overflow-y-auto p-4 space-y-4">
@@ -445,6 +451,27 @@ export default function Home() {
         onOpenChange={setIsAddServerDialogOpen}
         onServerCreated={handleServerCreated}
       />
+      <Sheet open={isServerSheetOpen} onOpenChange={setIsServerSheetOpen}>
+        <SheetContent side="left" className="w-80 p-0">
+          <SheetHeader className="border-b px-4 py-3">
+            <SheetTitle>Servers</SheetTitle>
+          </SheetHeader>
+          <div className="flex-1 overflow-y-auto p-4 space-y-4">
+            <ServerGrid
+              servers={servers}
+              isLoading={isLoadingServers}
+              selectedServerId={selectedServerId}
+              onSelectServer={handleSelectServer}
+              onDeleteServer={(serverId) => void handleDeleteServer(serverId)}
+              deletingServerIds={deletingServerIds}
+              onConnectServer={(serverId) => void handleConnectServer(serverId)}
+              onDisconnectServer={(serverId) => void handleDisconnectServer(serverId)}
+              connectingServerIds={connectingServerIds}
+              disconnectingServerIds={disconnectingServerIds}
+            />
+          </div>
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }
