@@ -8,11 +8,11 @@ import {
   CapabilityEmptyState,
   PromptCapabilityRow,
   ResourceCapabilityRow,
-  ToolCapabilityRow,
   type PromptCapability,
   type ResourceCapability,
   type ToolCapability,
 } from "@/components/capability-list-rows";
+import { ToolExecutionWorkspace } from "@/components/tool-execution-workspace";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -440,11 +440,10 @@ function SelectedServerContent({
               ) : null}
               <TabsContent value="tools" className="mt-0 min-h-0 flex-1 overflow-y-auto pr-1">
                 {capabilities && capabilities.tools.length > 0 ? (
-                  <ul className="space-y-2">
-                    {capabilities.tools.map((tool, index) => (
-                      <ToolCapabilityRow key={`${tool.name}-${index}`} tool={tool} />
-                    ))}
-                  </ul>
+                  <ToolExecutionWorkspace
+                    serverId={server.id}
+                    tools={capabilities.tools}
+                  />
                 ) : (
                   <CapabilityEmptyState message="No tools discovered for this server." />
                 )}

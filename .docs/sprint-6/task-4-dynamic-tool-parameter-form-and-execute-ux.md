@@ -1,7 +1,7 @@
 # Task 4: Dynamic Tool Parameter Form + Execute UX
 
 **Sprint:** 6 - Tool Execution & Resource Reading
-**Status:** not_started
+**Status:** done
 **Depends on:** Task 2
 
 ## Description
@@ -40,7 +40,7 @@ Build a schema-driven form UI for MCP tool execution so users can run tools with
 
 ## Acceptance Criteria
 
-- [ ] Dynamic forms render from tool schemas without hardcoded per-tool forms
-- [ ] Execute UX handles validation, loading, success, and error states cleanly
-- [ ] Form behavior remains stable when switching servers or tools
-- [ ] Accessibility baseline is preserved for keyboard interactions
+- [x] Dynamic forms render from tool schemas without hardcoded per-tool forms
+- [x] Execute UX handles validation, loading, success, and error states cleanly
+- [x] Form behavior remains stable when switching servers or tools
+- [x] Accessibility baseline is preserved for keyboard interactions
