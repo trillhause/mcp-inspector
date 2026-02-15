@@ -9,6 +9,7 @@ export type McpServer = {
   icon_url: string;
   is_preconfigured: boolean;
   is_enabled: boolean;
+  auth_mode: "oauth" | "none";
   connection_status: ConnectionStatus;
   tool_count: number | null;
   resource_count: number | null;

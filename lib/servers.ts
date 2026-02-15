@@ -34,6 +34,7 @@ export type ServerRow = {
   icon_url: string | null;
   is_preconfigured: number;
   is_enabled: number;
+  auth_mode: "oauth" | "none";
   token_expires_at: string | null;
   oauth_connected_at: string | null;
 };
@@ -130,6 +131,10 @@ export function findCanonicalUrlConflict(
 }
 
 function getConnectionStatus(row: ServerRow): McpServer["connection_status"] {
+  if (row.auth_mode === "none") {
+    return "connected";
+  }
+
   if (!row.oauth_connected_at) {
     return "disconnected";
   }
@@ -154,6 +159,7 @@ export function mapServerRowToMcpServer(row: ServerRow): McpServer {
     icon_url: row.icon_url ?? "/globe.svg",
     is_preconfigured: row.is_preconfigured === 1,
     is_enabled: row.is_enabled === 1,
+    auth_mode: row.auth_mode,
     connection_status: getConnectionStatus(row),
     tool_count: null,
     resource_count: null,

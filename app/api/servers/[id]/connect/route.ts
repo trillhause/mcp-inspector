@@ -6,6 +6,7 @@ import {
   isOAuthDiscoveryError,
   startOAuthAuthorizationFlow,
 } from "@/lib/oauth/authorize-flow";
+import { dbExecute } from "@/lib/db";
 import { bootstrapServerStore, PayloadValidationError } from "@/lib/servers";
 
 export const runtime = "nodejs";
@@ -96,6 +97,17 @@ function validateConnectPayload(payload: ConnectRequestPayload): ValidatedConnec
   };
 }
 
+function markServerAsNoAuth(serverId: string) {
+  dbExecute(
+    "UPDATE mcp_servers SET auth_mode = 'none', updated_at = datetime('now') WHERE id = ?",
+    [serverId],
+  );
+}
+
+function isUnsupportedServerError(error: unknown): boolean {
+  return isOAuthDiscoveryError(error) && (error as { code: string }).code === "UNSUPPORTED_SERVER";
+}
+
 export async function POST(
   request: Request,
   context: {
@@ -143,6 +155,15 @@ export async function POST(
       flow: authorization.flow,
     });
   } catch (error) {
+    // If OAuth discovery fails because the server doesn't support OAuth at all,
+    // treat it as a no-auth server and connect directly.
+    if (isUnsupportedServerError(error)) {
+      markServerAsNoAuth(id);
+      return NextResponse.json({
+        mcp_server_id: id,
+        next_action: "direct_connect",
+      });
+    }
     if (error instanceof PayloadValidationError) {
       return errorResponse(400, "INVALID_REQUEST", "Request validation failed", error.issues);
     }

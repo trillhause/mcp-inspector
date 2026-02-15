@@ -28,6 +28,7 @@ SELECT
   s.icon_url,
   s.is_preconfigured,
   s.is_enabled,
+  s.auth_mode,
   c.token_expires_at AS token_expires_at,
   c.connected_at AS oauth_connected_at
 FROM mcp_servers s

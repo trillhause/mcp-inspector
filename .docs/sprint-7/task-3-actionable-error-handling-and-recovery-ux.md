@@ -1,7 +1,7 @@
 # Task 3: Actionable Error Handling + Recovery UX
 
 **Sprint:** 7 - Polish & Multi-Server Testing
-**Status:** not_started
+**Status:** done
 **Depends on:** Task 1
 
 ## Description
@@ -40,6 +40,6 @@ Standardize error rendering and remediation across MCP actions so failures are u
 
 ## Acceptance Criteria
 
-- [ ] Error states are mapped to deterministic, actionable remediation UX
-- [ ] Failure handling is consistent across capabilities, execution, history, and settings views
-- [ ] Users can recover from common failures without refreshing the whole app
+- [x] Error states are mapped to deterministic, actionable remediation UX
+- [x] Failure handling is consistent across capabilities, execution, history, and settings views
+- [x] Users can recover from common failures without refreshing the whole app
