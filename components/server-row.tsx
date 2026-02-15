@@ -46,6 +46,10 @@ export function ServerRow({
   const isBusy = isConnecting || isDisconnecting || isDeleting;
   const isConnected = server.connection_status === "connected";
   const isExpired = server.connection_status === "expired";
+  const isTokenExpiringSoon =
+    server.connection_status === "connected" && server.token_lifecycle_state === "expiring_soon";
+  const statusDotClass = isTokenExpiringSoon ? "bg-amber-500" : STATUS_DOT[server.connection_status];
+  const statusLabel = isTokenExpiringSoon ? "Expiring soon" : STATUS_LABEL[server.connection_status];
 
   const capabilityHint =
     server.tool_count != null && server.tool_count > 0
@@ -81,15 +85,20 @@ export function ServerRow({
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-1.5">
           <span
-            className={cn("size-1.5 shrink-0 rounded-full", STATUS_DOT[server.connection_status])}
-            aria-label={STATUS_LABEL[server.connection_status]}
+            className={cn("size-1.5 shrink-0 rounded-full", statusDotClass)}
+            aria-label={statusLabel}
           />
           <span className="truncate text-sm font-medium">{server.name}</span>
+          {isTokenExpiringSoon ? (
+            <Badge className="ml-1 px-1.5 py-0.5 text-[10px] font-normal bg-amber-100 text-amber-800">
+              Expiring
+            </Badge>
+          ) : null}
           {isSelected && capabilityHint ? (
-          <Badge className="ml-3 px-1.5 py-0.5 text-[11px] font-normal bg-slate-200 text-muted-foreground">
-            {capabilityHint}
-          </Badge>
-        ) : null}
+            <Badge className="ml-3 px-1.5 py-0.5 text-[11px] font-normal bg-slate-200 text-muted-foreground">
+              {capabilityHint}
+            </Badge>
+          ) : null}
         </div>
       </div>
 

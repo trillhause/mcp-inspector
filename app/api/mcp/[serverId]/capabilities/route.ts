@@ -14,6 +14,7 @@ import {
 import { isMcpClientError } from "@/lib/mcp/client";
 import { isMcpCapabilityDiscoveryError } from "@/lib/mcp/discovery";
 import {
+  deriveMcpTokenLifecycleState,
   MCP_INTERACTION_ERROR_CATEGORY_BY_CODE,
   type McpInteractionErrorCode,
 } from "@/lib/mcp/interaction-contract";
@@ -32,6 +33,7 @@ type StaleReason =
 
 type ServerConnectionRow = {
   id: string;
+  auth_mode: "oauth" | "none";
   token_expires_at: string | null;
   has_credentials: number;
 };
@@ -91,6 +93,14 @@ function parseRefreshMode(request: Request) {
   return false;
 }
 
+function hasReconnectRequiredDetail(details: string[] | undefined) {
+  if (!details || details.length === 0) {
+    return false;
+  }
+
+  return details.some((detail) => detail.toLowerCase().includes("reconnect_required=true"));
+}
+
 function mapInternalError(error: unknown): ApiError {
   if (isMcpCapabilityDiscoveryError(error)) {
     return {
@@ -106,9 +116,13 @@ function mapInternalError(error: unknown): ApiError {
 
   if (isMcpClientError(error)) {
     const normalizedCode: McpInteractionErrorCode =
-      error.code === "NOT_CONNECTED" || error.code === "AUTH_REQUIRED" || error.code === "MCP_CONNECT_FAILED"
-        ? error.code
-        : "INTERNAL_ERROR";
+      error.code === "AUTH_REQUIRED" && hasReconnectRequiredDetail(error.details)
+        ? "RECONNECT_REQUIRED"
+        : error.code === "NOT_CONNECTED" ||
+            error.code === "AUTH_REQUIRED" ||
+            error.code === "MCP_CONNECT_FAILED"
+          ? error.code
+          : "INTERNAL_ERROR";
     return {
       status: error.httpStatus,
       code: normalizedCode,
@@ -125,18 +139,17 @@ function mapInternalError(error: unknown): ApiError {
 }
 
 function resolveConnectionStatus(
-  row: Pick<ServerConnectionRow, "token_expires_at" | "has_credentials">,
+  row: Pick<ServerConnectionRow, "auth_mode" | "token_expires_at" | "has_credentials">,
 ): ConnectionStatus {
+  if (row.auth_mode === "none") {
+    return "connected";
+  }
+
   if (row.has_credentials !== 1) {
     return "disconnected";
   }
 
-  if (!row.token_expires_at) {
-    return "connected";
-  }
-
-  const expiresAtMs = Date.parse(row.token_expires_at);
-  if (Number.isNaN(expiresAtMs) || expiresAtMs <= Date.now()) {
+  if (deriveMcpTokenLifecycleState(row.token_expires_at) === "expired") {
     return "expired";
   }
 
@@ -238,6 +251,7 @@ export async function GET(
   const connection = dbQueryFirst<ServerConnectionRow>(
     `SELECT
       s.id,
+      s.auth_mode AS auth_mode,
       c.token_expires_at AS token_expires_at,
       CASE WHEN c.mcp_server_id IS NULL THEN 0 ELSE 1 END AS has_credentials
     FROM mcp_servers s
@@ -306,6 +320,23 @@ export async function GET(
     );
   }
 
+  if (connectionStatus === "expired" && !cachedRecord) {
+    return errorResponse({
+      status: 401,
+      code: "RECONNECT_REQUIRED",
+      message: "Credentials are expired and require reconnect before refreshing capabilities",
+      details: ["reconnect_required=true"],
+    });
+  }
+
+  if (connectionStatus === "disconnected" && !cachedRecord) {
+    return errorResponse({
+      status: 409,
+      code: "NOT_CONNECTED",
+      message: "Server is not connected",
+    });
+  }
+
   try {
     const persisted = await refreshCapabilitiesForServer({
       mcpServerId: serverId,
@@ -326,7 +357,9 @@ export async function GET(
 
     if (cachedRecord) {
       const fallbackReason: StaleReason =
-        connectionStatus === "expired" ? "reconnect_required" : "refresh_failed";
+        connectionStatus === "expired" || mappedError.code === "RECONNECT_REQUIRED"
+          ? "reconnect_required"
+          : "refresh_failed";
 
       return NextResponse.json({
         ...toCapabilitiesPayload(cachedRecord, {

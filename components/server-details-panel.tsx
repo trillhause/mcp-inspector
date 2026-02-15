@@ -31,12 +31,23 @@ import type {
   McpInteractionErrorCode,
   McpSurfaceState,
 } from "@/lib/mcp/interaction-contract";
-import type { ConnectionStatus, McpServer } from "@/lib/types";
+import type {
+  ConnectionStatus,
+  McpServer,
+  TokenLifecycleState,
+} from "@/lib/types";
 
 type ServerDetailsPanelProps = {
   selectedServer: McpServer;
   onConnect?: (serverId: string) => void;
   onDisconnect?: (serverId: string) => void;
+  onTokenLifecycleUpdated?: (
+    serverId: string,
+    next: Pick<
+      McpServer,
+      "connection_status" | "connected_at" | "token_expires_at" | "token_lifecycle_state"
+    >,
+  ) => void;
   onCapabilitiesLoaded?: (
     serverId: string,
     counts: { tools: number; resources: number },
@@ -77,6 +88,18 @@ type CapabilitiesApiPayload = {
   error?: CapabilitiesApiError;
 };
 
+type RefreshTokenSuccessPayload = {
+  mcp_server_id: string;
+  status: "connected" | "reconnect_required";
+  connection_status: ConnectionStatus;
+  refreshed: boolean;
+  refresh_reason: string;
+  connected_at: string | null;
+  token_expires_at: string | null;
+  token_lifecycle_state: TokenLifecycleState;
+  last_refreshed_at: string | null;
+};
+
 type CapabilitiesTab = "tools" | "resources" | "prompts" | "history";
 const CAPABILITIES_REQUEST_TIMEOUT_MS = 20_000;
 const SURFACE_STATE_LABELS: Record<McpSurfaceState, string> = {
@@ -112,6 +135,7 @@ export function ServerDetailsPanel({
   selectedServer,
   onConnect,
   onDisconnect,
+  onTokenLifecycleUpdated,
   onCapabilitiesLoaded,
   isConnecting = false,
   isDisconnecting = false,
@@ -122,6 +146,7 @@ export function ServerDetailsPanel({
         server={selectedServer}
         onConnect={onConnect}
         onDisconnect={onDisconnect}
+        onTokenLifecycleUpdated={onTokenLifecycleUpdated}
         onCapabilitiesLoaded={onCapabilitiesLoaded}
         isConnecting={isConnecting}
         isDisconnecting={isDisconnecting}
@@ -134,6 +159,7 @@ function SelectedServerContent({
   server,
   onConnect,
   onDisconnect,
+  onTokenLifecycleUpdated,
   onCapabilitiesLoaded,
   isConnecting,
   isDisconnecting,
@@ -141,6 +167,13 @@ function SelectedServerContent({
   server: McpServer;
   onConnect?: (serverId: string) => void;
   onDisconnect?: (serverId: string) => void;
+  onTokenLifecycleUpdated?: (
+    serverId: string,
+    next: Pick<
+      McpServer,
+      "connection_status" | "connected_at" | "token_expires_at" | "token_lifecycle_state"
+    >,
+  ) => void;
   onCapabilitiesLoaded?: (
     serverId: string,
     counts: { tools: number; resources: number },
@@ -155,13 +188,30 @@ function SelectedServerContent({
   const [refreshNotice, setRefreshNotice] = useState<string | null>(null);
   const [isLoadingCapabilities, setIsLoadingCapabilities] = useState(false);
   const [isRefreshingCapabilities, setIsRefreshingCapabilities] = useState(false);
+  const [isRefreshingToken, setIsRefreshingToken] = useState(false);
+  const [tokenLifecycleNotice, setTokenLifecycleNotice] = useState<{
+    type: "success" | "error";
+    message: string;
+  } | null>(null);
   const capabilitiesRef = useRef<CapabilitiesApiPayload | null>(null);
   const capabilitiesCacheRef = useRef<Map<string, CapabilitiesApiPayload>>(new Map());
 
   const status = STATUS_STYLES[server.connection_status];
   const isConnected = server.connection_status === "connected";
   const canInspectCapabilities = server.connection_status !== "disconnected";
-  const isBusy = isConnecting || isDisconnecting;
+  const canManualRefreshCapabilities = canInspectCapabilities && server.connection_status !== "expired";
+  const isBusy = isConnecting || isDisconnecting || isRefreshingToken;
+  const isTokenExpiringSoon = server.token_lifecycle_state === "expiring_soon";
+  const isTokenExpired = server.connection_status === "expired" || server.token_lifecycle_state === "expired";
+  const showTokenLifecycleWarning =
+    server.auth_mode === "oauth" && (isTokenExpiringSoon || isTokenExpired);
+  const tokenLifecycleBannerMessage = useMemo(() => {
+    if (isTokenExpired) {
+      return "Stored credentials have expired. Reconnect this server to continue authenticated actions.";
+    }
+
+    return "Credentials are expiring soon. Refresh now to avoid interruptions.";
+  }, [isTokenExpired]);
   const capabilityCounts = capabilities
     ? {
         tools: capabilities.tools_count,
@@ -173,6 +223,7 @@ function SelectedServerContent({
   const hasCapabilitiesData = capabilities !== null;
   const hasDiscoveredCapabilities = capabilityCounts.tools + capabilityCounts.resources + capabilityCounts.prompts > 0;
   const isCapabilitiesStale = capabilities?.stale === true;
+  const isReconnectRequiredStale = capabilities?.stale_reason === "reconnect_required";
   const capabilitiesSurfaceState = useMemo<McpSurfaceState>(() => {
     if (!canInspectCapabilities) {
       return "idle";
@@ -383,6 +434,80 @@ function SelectedServerContent({
     [canInspectCapabilities, onCapabilitiesLoaded, server.id],
   );
 
+  const handleRefreshToken = useCallback(async () => {
+    if (isRefreshingToken || server.auth_mode !== "oauth") {
+      return;
+    }
+
+    setTokenLifecycleNotice(null);
+    setIsRefreshingToken(true);
+
+    try {
+      const response = await fetch("/api/oauth/refresh", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          mcp_server_id: server.id,
+          force: true,
+        }),
+      });
+
+      const payload = (await response.json().catch(() => null)) as
+        | RefreshTokenSuccessPayload
+        | {
+            error?: {
+              message?: string;
+            };
+          }
+        | null;
+
+      if (!response.ok) {
+        const errorPayload =
+          isRecord(payload) && "error" in payload && isRecord(payload.error) ? payload.error : null;
+        const message =
+          errorPayload && typeof errorPayload.message === "string"
+            ? errorPayload.message
+            : `Failed to refresh token (HTTP ${response.status})`;
+        throw new Error(message);
+      }
+
+      if (!isRefreshTokenSuccessPayload(payload)) {
+        throw new Error("Token refresh returned an invalid payload");
+      }
+
+      onTokenLifecycleUpdated?.(server.id, {
+        connection_status: payload.connection_status,
+        connected_at: payload.connected_at,
+        token_expires_at: payload.token_expires_at,
+        token_lifecycle_state: payload.token_lifecycle_state,
+      });
+
+      if (payload.status === "reconnect_required" || payload.connection_status === "expired") {
+        setTokenLifecycleNotice({
+          type: "error",
+          message: "Refresh can no longer recover this session. Reconnect is required.",
+        });
+        return;
+      }
+
+      setTokenLifecycleNotice({
+        type: "success",
+        message: payload.refreshed
+          ? "Token refreshed successfully."
+          : "Token is still valid. No refresh was needed.",
+      });
+    } catch (error) {
+      setTokenLifecycleNotice({
+        type: "error",
+        message: error instanceof Error ? error.message : "Failed to refresh token.",
+      });
+    } finally {
+      setIsRefreshingToken(false);
+    }
+  }, [isRefreshingToken, onTokenLifecycleUpdated, server.auth_mode, server.id]);
+
   useEffect(() => {
     setActiveTab("tools");
   }, [server.id]);
@@ -390,6 +515,8 @@ function SelectedServerContent({
   useEffect(() => {
     setCapabilitiesError(null);
     setRefreshNotice(null);
+    setTokenLifecycleNotice(null);
+    setIsRefreshingToken(false);
     setIsRefreshingCapabilities(false);
     setIsLoadingCapabilities(false);
 
@@ -469,6 +596,56 @@ function SelectedServerContent({
         </div>
       </div>
 
+      {showTokenLifecycleWarning ? (
+        <div
+          className="mt-3 flex flex-wrap items-center justify-between gap-3 rounded-md border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-900"
+          role="status"
+        >
+          <p>{tokenLifecycleBannerMessage}</p>
+          <div className="flex items-center gap-2">
+            {isTokenExpired ? (
+              <Button
+                type="button"
+                size="sm"
+                onClick={() => onConnect?.(server.id)}
+                disabled={isBusy || !onConnect}
+              >
+                Reconnect now
+              </Button>
+            ) : (
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={() => void handleRefreshToken()}
+                disabled={isBusy}
+              >
+                {isRefreshingToken ? (
+                  <>
+                    <Loader2 className="size-4 animate-spin" />
+                    Refreshing token...
+                  </>
+                ) : (
+                  "Refresh token"
+                )}
+              </Button>
+            )}
+          </div>
+        </div>
+      ) : null}
+      {tokenLifecycleNotice ? (
+        <div
+          className={`mt-3 rounded-md border p-3 text-xs ${
+            tokenLifecycleNotice.type === "success"
+              ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-900"
+              : "border-destructive/30 bg-destructive/5 text-destructive"
+          }`}
+          role="status"
+        >
+          {tokenLifecycleNotice.message}
+        </div>
+      ) : null}
+
       <Tabs
         value={activeTab}
         onValueChange={(value) => setActiveTab(value as CapabilitiesTab)}
@@ -503,7 +680,7 @@ function SelectedServerContent({
                 size="sm"
                 className="h-8"
                 onClick={() => void loadCapabilities({ refresh: true })}
-                disabled={!canInspectCapabilities || isRefreshingCapabilities}
+                disabled={!canManualRefreshCapabilities || isRefreshingCapabilities || isBusy}
               >
                 {isRefreshingCapabilities ? (
                   <>
@@ -562,14 +739,24 @@ function SelectedServerContent({
                     size="sm"
                     variant="outline"
                     className="h-7"
-                    onClick={() => void loadCapabilities({ refresh: true })}
-                    disabled={isRefreshingCapabilities}
+                    onClick={() => {
+                      if (isReconnectRequiredStale) {
+                        onConnect?.(server.id);
+                        return;
+                      }
+                      void loadCapabilities({ refresh: true });
+                    }}
+                    disabled={
+                      isRefreshingCapabilities || isBusy || (isReconnectRequiredStale && !onConnect)
+                    }
                   >
                     {isRefreshingCapabilities ? (
                       <>
                         <Loader2 className="size-4 animate-spin" />
                         Refreshing...
                       </>
+                    ) : isReconnectRequiredStale ? (
+                      "Reconnect"
                     ) : (
                       "Retry"
                     )}
@@ -756,6 +943,30 @@ function CapabilitiesErrorState({
         </details>
       </div>
     </div>
+  );
+}
+
+function isTokenLifecycleState(value: unknown): value is TokenLifecycleState {
+  return (
+    value === "healthy" ||
+    value === "expiring_soon" ||
+    value === "expired" ||
+    value === "unknown"
+  );
+}
+
+function isRefreshTokenSuccessPayload(payload: unknown): payload is RefreshTokenSuccessPayload {
+  if (!isRecord(payload)) {
+    return false;
+  }
+
+  return (
+    typeof payload.mcp_server_id === "string" &&
+    (payload.status === "connected" || payload.status === "reconnect_required") &&
+    (payload.connection_status === "connected" || payload.connection_status === "expired") &&
+    (payload.connected_at === null || typeof payload.connected_at === "string") &&
+    (payload.token_expires_at === null || typeof payload.token_expires_at === "string") &&
+    isTokenLifecycleState(payload.token_lifecycle_state)
   );
 }
 

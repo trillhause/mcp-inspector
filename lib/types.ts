@@ -1,4 +1,5 @@
 export type ConnectionStatus = "connected" | "disconnected" | "expired";
+export type TokenLifecycleState = "healthy" | "expiring_soon" | "expired" | "unknown";
 
 export type McpServer = {
   id: string;
@@ -14,4 +15,6 @@ export type McpServer = {
   tool_count: number | null;
   resource_count: number | null;
   connected_at: string | null;
+  token_expires_at: string | null;
+  token_lifecycle_state: TokenLifecycleState;
 };

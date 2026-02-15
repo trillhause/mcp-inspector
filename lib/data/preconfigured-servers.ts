@@ -15,6 +15,8 @@ export const PRECONFIGURED_SERVERS: McpServer[] = [
     tool_count: null,
     resource_count: null,
     connected_at: null,
+    token_expires_at: null,
+    token_lifecycle_state: "unknown",
   },
   {
     id: "sentry",
@@ -30,6 +32,8 @@ export const PRECONFIGURED_SERVERS: McpServer[] = [
     tool_count: null,
     resource_count: null,
     connected_at: null,
+    token_expires_at: null,
+    token_lifecycle_state: "unknown",
   },
   {
     id: "posthog",
@@ -45,5 +49,7 @@ export const PRECONFIGURED_SERVERS: McpServer[] = [
     tool_count: null,
     resource_count: null,
     connected_at: null,
+    token_expires_at: null,
+    token_lifecycle_state: "unknown",
   },
 ];
