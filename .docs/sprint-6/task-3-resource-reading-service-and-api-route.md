@@ -1,7 +1,7 @@
 # Task 3: Resource Reading Service + API Route
 
 **Sprint:** 6 - Tool Execution & Resource Reading
-**Status:** not_started
+**Status:** done
 **Depends on:** Task 1
 
 ## Description
@@ -38,7 +38,7 @@ Implement authenticated MCP resource reading with URI-safe request handling, nor
 
 ## Acceptance Criteria
 
-- [ ] Resource reading route works end-to-end for connected servers
-- [ ] URI validation and error mapping are deterministic
-- [ ] Response shape supports content-aware UI rendering
-- [ ] Payload handling is safe for large or non-text responses
+- [x] Resource reading route works end-to-end for connected servers
+- [x] URI validation and error mapping are deterministic
+- [x] Response shape supports content-aware UI rendering
+- [x] Payload handling is safe for large or non-text responses
