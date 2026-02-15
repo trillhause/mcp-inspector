@@ -34,14 +34,14 @@ export function ServerGrid({
   if (isLoading) {
     return (
       <section className="space-y-4">
-        <h2 className="text-xl font-semibold tracking-tight">Servers</h2>
-        <ServerCardSkeletonGrid />
+        <h2 className="text-sm font-semibold tracking-tight text-muted-foreground uppercase">Servers</h2>
+        <ServerCardSkeletonList />
       </section>
     );
   }
 
   return (
-    <section className="space-y-8">
+    <section className="space-y-6">
       <ServerSection
         title="Pre-configured Servers"
         emptyMessage="No pre-configured servers found."
@@ -101,9 +101,9 @@ function ServerSection({
 }: ServerSectionProps) {
   return (
     <section className="space-y-4">
-      <h2 className="text-xl font-semibold tracking-tight">{title}</h2>
+      <h2 className="text-sm font-semibold tracking-tight text-muted-foreground uppercase">{title}</h2>
       {servers.length > 0 ? (
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+        <div className="flex flex-col gap-2">
           {servers.map((server) => (
             <ServerCard
               key={server.id}
@@ -128,25 +128,17 @@ function ServerSection({
   );
 }
 
-function ServerCardSkeletonGrid() {
+function ServerCardSkeletonList() {
   return (
-    <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-      {Array.from({ length: 6 }).map((_, index) => (
-        <Card key={index} className="h-[232px] p-5">
-          <div className="flex h-full animate-pulse flex-col gap-4">
-            <div className="flex items-center justify-between gap-4">
-              <div className="flex items-center gap-3">
-                <div className="size-8 rounded-md bg-muted" />
-                <div className="h-4 w-24 rounded bg-muted" />
-              </div>
-              <div className="h-5 w-24 rounded-full bg-muted" />
+    <div className="flex flex-col gap-2">
+      {Array.from({ length: 4 }).map((_, index) => (
+        <Card key={index} className="p-3">
+          <div className="flex animate-pulse items-center gap-3">
+            <div className="size-8 shrink-0 rounded-md bg-muted" />
+            <div className="min-w-0 flex-1 space-y-1.5">
+              <div className="h-3.5 w-28 rounded bg-muted" />
+              <div className="h-3 w-16 rounded bg-muted" />
             </div>
-            <div className="space-y-2">
-              <div className="h-3 w-full rounded bg-muted" />
-              <div className="h-3 w-2/3 rounded bg-muted" />
-            </div>
-            <div className="h-3 w-36 rounded bg-muted" />
-            <div className="mt-auto h-9 w-full rounded bg-muted" />
           </div>
         </Card>
       ))}

@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { Search } from "lucide-react";
 
 import { AddServerDialog } from "@/components/add-server-dialog";
 import { Header } from "@/components/header";
@@ -42,7 +43,6 @@ export default function Home() {
   const [serversError, setServersError] = useState<string | null>(null);
   const [oauthNotice, setOauthNotice] = useState<OAuthNotice | null>(null);
   const [selectedServerId, setSelectedServerId] = useState<string | null>(null);
-  const [isInspectorExpanded, setIsInspectorExpanded] = useState(false);
   const [isAddServerDialogOpen, setIsAddServerDialogOpen] = useState(false);
   const [deletingServerIds, setDeletingServerIds] = useState<Set<string>>(new Set());
   const [connectingServerIds, setConnectingServerIds] = useState<Set<string>>(new Set());
@@ -95,7 +95,6 @@ export default function Home() {
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key !== "Escape") return;
       setSelectedServerId(null);
-      setIsInspectorExpanded(false);
     };
 
     window.addEventListener("keydown", handleKeyDown);
@@ -116,7 +115,6 @@ export default function Home() {
     if (serverStillExists) return;
 
     setSelectedServerId(null);
-    setIsInspectorExpanded(false);
   }, [selectedServerId, servers]);
 
   useEffect(() => {
@@ -142,7 +140,6 @@ export default function Home() {
 
       if (mcpServerId) {
         setSelectedServerId(mcpServerId);
-        setIsInspectorExpanded(true);
       }
 
       if (oauthStatus === "success") {
@@ -167,7 +164,6 @@ export default function Home() {
 
   const handleSelectServer = (serverId: string) => {
     setSelectedServerId(serverId);
-    setIsInspectorExpanded(true);
   };
 
   const handleServerCreated = useCallback((server: McpServer) => {
@@ -178,7 +174,6 @@ export default function Home() {
       ]),
     );
     setSelectedServerId(server.id);
-    setIsInspectorExpanded(true);
     setServersError(null);
   }, []);
 
@@ -361,77 +356,91 @@ export default function Home() {
   );
 
   return (
-    <div className="flex min-h-screen flex-col overflow-x-hidden bg-background">
+    <div className="flex min-h-screen flex-col bg-background">
       <Header onAddServer={() => setIsAddServerDialogOpen(true)} />
-      <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-6 pb-20 sm:px-6 lg:px-8">
-        <div className="space-y-4">
-          {oauthNotice ? (
-            <div
-              className={`flex flex-col gap-3 rounded-lg border p-4 sm:flex-row sm:items-center sm:justify-between ${
-                oauthNotice.type === "success"
-                  ? "border-emerald-400/40 bg-emerald-500/5"
-                  : "border-destructive/40 bg-destructive/5"
-              }`}
-              role={oauthNotice.type === "error" ? "alert" : "status"}
-            >
-              <p
-                className={`text-sm ${
-                  oauthNotice.type === "success" ? "text-emerald-700" : "text-destructive"
+      <div className="flex flex-1 overflow-hidden">
+        <aside className="hidden md:flex md:w-72 lg:w-80 flex-col border-r">
+          <div className="flex-1 overflow-y-auto p-4 space-y-4">
+            {oauthNotice ? (
+              <div
+                className={`flex flex-col gap-2 rounded-lg border p-3 ${
+                  oauthNotice.type === "success"
+                    ? "border-emerald-400/40 bg-emerald-500/5"
+                    : "border-destructive/40 bg-destructive/5"
                 }`}
+                role={oauthNotice.type === "error" ? "alert" : "status"}
               >
-                {oauthNotice.message}
-              </p>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => setOauthNotice(null)}
+                <p
+                  className={`text-sm ${
+                    oauthNotice.type === "success" ? "text-emerald-700" : "text-destructive"
+                  }`}
+                >
+                  {oauthNotice.message}
+                </p>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setOauthNotice(null)}
+                >
+                  Dismiss
+                </Button>
+              </div>
+            ) : null}
+            {serversError ? (
+              <div
+                className="flex flex-col gap-2 rounded-lg border border-destructive/40 bg-destructive/5 p-3"
+                role="alert"
               >
-                Dismiss
-              </Button>
+                <p className="text-sm text-destructive">Error: {serversError}</p>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => void loadServers()}
+                  disabled={isLoadingServers}
+                >
+                  Retry
+                </Button>
+              </div>
+            ) : null}
+            <ServerGrid
+              servers={servers}
+              isLoading={isLoadingServers}
+              selectedServerId={selectedServerId}
+              onSelectServer={handleSelectServer}
+              onDeleteServer={(serverId) => void handleDeleteServer(serverId)}
+              deletingServerIds={deletingServerIds}
+              onConnectServer={(serverId) => void handleConnectServer(serverId)}
+              onDisconnectServer={(serverId) => void handleDisconnectServer(serverId)}
+              connectingServerIds={connectingServerIds}
+              disconnectingServerIds={disconnectingServerIds}
+            />
+          </div>
+        </aside>
+        <main className="flex-1 overflow-y-auto">
+          {selectedServer ? (
+            <InspectorPanel
+              selectedServer={selectedServer}
+              onClearSelection={() => setSelectedServerId(null)}
+              onConnect={(serverId) => void handleConnectServer(serverId)}
+              onDisconnect={(serverId) => void handleDisconnectServer(serverId)}
+              onCapabilitiesLoaded={handleCapabilitiesLoaded}
+              isConnecting={connectingServerIds.has(selectedServer.id)}
+              isDisconnecting={disconnectingServerIds.has(selectedServer.id)}
+            />
+          ) : (
+            <div className="flex h-full items-center justify-center p-6">
+              <div className="flex max-w-md flex-col items-center gap-3 text-center text-muted-foreground">
+                <Search className="size-8" aria-hidden="true" />
+                <p className="text-sm sm:text-base">
+                  Select a server from the sidebar to view its details
+                </p>
+              </div>
             </div>
-          ) : null}
-          {serversError ? (
-            <div
-              className="flex flex-col gap-3 rounded-lg border border-destructive/40 bg-destructive/5 p-4 sm:flex-row sm:items-center sm:justify-between"
-              role="alert"
-            >
-              <p className="text-sm text-destructive">Error: {serversError}</p>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => void loadServers()}
-                disabled={isLoadingServers}
-              >
-                Retry
-              </Button>
-            </div>
-          ) : null}
-          <ServerGrid
-            servers={servers}
-            isLoading={isLoadingServers}
-            selectedServerId={selectedServerId}
-            onSelectServer={handleSelectServer}
-            onDeleteServer={(serverId) => void handleDeleteServer(serverId)}
-            deletingServerIds={deletingServerIds}
-            onConnectServer={(serverId) => void handleConnectServer(serverId)}
-            onDisconnectServer={(serverId) => void handleDisconnectServer(serverId)}
-            connectingServerIds={connectingServerIds}
-            disconnectingServerIds={disconnectingServerIds}
-          />
-        </div>
-      </main>
-      <InspectorPanel
-        isExpanded={isInspectorExpanded}
-        selectedServer={selectedServer}
-        onClearSelection={() => setSelectedServerId(null)}
-        onExpandedChange={setIsInspectorExpanded}
-        onConnect={(serverId) => void handleConnectServer(serverId)}
-        onDisconnect={(serverId) => void handleDisconnectServer(serverId)}
-        onCapabilitiesLoaded={handleCapabilitiesLoaded}
-        isConnecting={selectedServer ? connectingServerIds.has(selectedServer.id) : false}
-        isDisconnecting={selectedServer ? disconnectingServerIds.has(selectedServer.id) : false}
-      />
+          )}
+        </main>
+      </div>
       <AddServerDialog
         open={isAddServerDialogOpen}
         onOpenChange={setIsAddServerDialogOpen}
