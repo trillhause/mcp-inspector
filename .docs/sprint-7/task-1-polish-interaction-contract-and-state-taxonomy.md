@@ -1,7 +1,7 @@
 # Task 1: Polish Interaction Contract + State Taxonomy
 
 **Sprint:** 7 - Polish & Multi-Server Testing
-**Status:** not_started
+**Status:** done
 **Depends on:** none
 
 ## Description
@@ -37,6 +37,6 @@ Define a shared interaction contract for loading, error, token, history, and set
 
 ## Acceptance Criteria
 
-- [ ] Contract document exists and is implementation-ready
-- [ ] Shared state taxonomy is explicit and reusable across all Sprint 7 surfaces
-- [ ] Error and token lifecycle behavior is defined with actionable UX mapping
+- [x] Contract document exists and is implementation-ready
+- [x] Shared state taxonomy is explicit and reusable across all Sprint 7 surfaces
+- [x] Error and token lifecycle behavior is defined with actionable UX mapping

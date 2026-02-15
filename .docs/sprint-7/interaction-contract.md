@@ -22,6 +22,17 @@ State naming and transitions must be deterministic across:
 - execution history
 - server settings
 
+Canonical transitions:
+
+| From | Allowed To |
+|------|------------|
+| `idle` | `loading`, `success`, `empty`, `error` |
+| `loading` | `success`, `empty`, `stale`, `error` |
+| `success` | `loading`, `stale`, `empty`, `error` |
+| `empty` | `loading`, `success`, `error` |
+| `stale` | `loading`, `success`, `empty`, `error` |
+| `error` | `loading`, `stale`, `success`, `empty` |
+
 ---
 
 ## 2. Loading + Transition Contract
@@ -55,6 +66,23 @@ Canonical UX groupings:
 
 Generic failures must not be shown without a next-step action.
 
+Deterministic code-to-remediation mapping:
+
+| Code | Category | Primary CTA | UX Hint |
+|------|----------|-------------|---------|
+| `INVALID_REQUEST` | `validation` | `Fix request` | Review request format and submit again |
+| `VALIDATION_ERROR` | `validation` | `Fix input` | Correct invalid fields before retrying |
+| `NETWORK_ERROR` | `connection` | `Retry` | Check network and endpoint availability |
+| `NOT_CONNECTED` | `connection` | `Connect` | Connect this server before running MCP actions |
+| `AUTH_REQUIRED` | `auth` | `Reconnect` | Authentication is required to continue |
+| `RECONNECT_REQUIRED` | `auth` | `Reconnect` | Credentials are no longer recoverable with refresh |
+| `TOOL_NOT_FOUND` | `not_found` | `Refresh capabilities` | Tool list may be stale |
+| `RESOURCE_NOT_FOUND` | `not_found` | `Refresh capabilities` | Resource list may be stale |
+| `MCP_CONNECT_FAILED` | `connection` | `Retry` | Verify transport and endpoint reachability |
+| `EXECUTION_FAILED` | `execution` | `Retry` | Retry or inspect diagnostics |
+| `READ_FAILED` | `execution` | `Retry` | Retry or inspect diagnostics |
+| `INTERNAL_ERROR` | `internal` | `Retry` | Report issue with diagnostics if persistent |
+
 ---
 
 ## 4. Token Lifecycle UX Contract
@@ -72,6 +100,14 @@ Behavior:
 - For `expired`, block auth-required actions with reconnect-required CTA
 - If refresh succeeds, clear warning state without full-page disruption
 - If refresh fails terminally, transition to reconnect-required state with reason context
+
+Derivation rules:
+
+- `warning_threshold_ms`: `900000` (15 minutes) unless a future config override is introduced
+- missing/invalid `token_expires_at`: `unknown`
+- `token_expires_at <= now`: `expired`
+- `0 < token_expires_at - now <= warning_threshold_ms`: `expiring_soon`
+- `token_expires_at - now > warning_threshold_ms`: `healthy`
 
 ---
 
@@ -101,9 +137,26 @@ Settings update behavior:
 
 ---
 
-## 7. Non-Goals for Sprint 7
+## 7. Scope Boundaries
+
+In scope:
+
+- state and copy consistency across surfaces
+- deterministic remediation UX for known error codes
+- token lifecycle warning and reconnect state semantics
+- contract-level rules needed by Sprint 7 implementation tasks
+
+Out of scope:
 
 - No net-new OAuth discovery standards work beyond existing implementation (Sprint 8 scope)
 - No provider-specific custom form/rendering logic for individual tools
 - No mutation workflows for external resources
 - No background job queueing or scheduled execution
+
+---
+
+## 8. Runtime Contract Anchors
+
+This document is mirrored by shared runtime constants/types in:
+
+- `lib/mcp/interaction-contract.ts`
