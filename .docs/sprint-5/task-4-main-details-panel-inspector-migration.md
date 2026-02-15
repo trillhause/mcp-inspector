@@ -1,7 +1,7 @@
 # Task 4: Main Details Panel (Inspector Migration)
 
 **Sprint:** 5 - UI Navigation Refresh (Sidebar + Main Panel)
-**Status:** not_started
+**Status:** done
 **Depends on:** Task 2
 
 ## Description
