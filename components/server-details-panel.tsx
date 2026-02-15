@@ -11,6 +11,7 @@ import {
   type ResourceCapability,
   type ToolCapability,
 } from "@/components/capability-list-rows";
+import { ExecutionHistoryWorkspace } from "@/components/execution-history-workspace";
 import { ResourceReadingWorkspace } from "@/components/resource-reading-workspace";
 import { ToolExecutionWorkspace } from "@/components/tool-execution-workspace";
 import { Badge } from "@/components/ui/badge";
@@ -56,7 +57,7 @@ type CapabilitiesApiPayload = {
   error?: CapabilitiesApiError;
 };
 
-type CapabilitiesTab = "tools" | "resources" | "prompts";
+type CapabilitiesTab = "tools" | "resources" | "prompts" | "history";
 const CAPABILITIES_REQUEST_TIMEOUT_MS = 20_000;
 
 const STATUS_STYLES: Record<
@@ -139,6 +140,7 @@ function SelectedServerContent({
         prompts: capabilities.prompts_count,
       }
     : { tools: 0, resources: 0, prompts: 0 };
+  const isHistoryTab = activeTab === "history";
 
   const loadCapabilities = useCallback(
     async ({
@@ -373,27 +375,34 @@ function SelectedServerContent({
               Prompts
               <Badge variant="secondary">{capabilityCounts.prompts}</Badge>
             </TabsTrigger>
+            <TabsTrigger value="history">History</TabsTrigger>
           </TabsList>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="h-8"
-            onClick={() => void loadCapabilities({ refresh: true })}
-            disabled={!canInspectCapabilities || isRefreshingCapabilities}
-          >
-            {isRefreshingCapabilities ? (
-              <>
-                <Loader2 className="size-4 animate-spin" />
-                Refreshing...
-              </>
-            ) : (
-              "Refresh"
-            )}
-          </Button>
+          {!isHistoryTab ? (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-8"
+              onClick={() => void loadCapabilities({ refresh: true })}
+              disabled={!canInspectCapabilities || isRefreshingCapabilities}
+            >
+              {isRefreshingCapabilities ? (
+                <>
+                  <Loader2 className="size-4 animate-spin" />
+                  Refreshing...
+                </>
+              ) : (
+                "Refresh"
+              )}
+            </Button>
+          ) : null}
         </div>
         <div className="mt-3 min-h-0 flex-1 rounded-lg border bg-muted/20 p-3">
-          {!canInspectCapabilities ? (
+          {isHistoryTab ? (
+            <TabsContent value="history" className="mt-0 min-h-0 flex-1 overflow-y-auto pr-1">
+              <ExecutionHistoryWorkspace serverId={server.id} serverName={server.name} />
+            </TabsContent>
+          ) : !canInspectCapabilities ? (
             <DisconnectedCapabilitiesState />
           ) : capabilitiesError ? (
             <CapabilitiesErrorState

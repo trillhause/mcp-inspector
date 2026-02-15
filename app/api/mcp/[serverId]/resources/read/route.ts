@@ -3,6 +3,10 @@ import { Buffer } from "node:buffer";
 import { NextResponse } from "next/server";
 
 import {
+  recordExecutionHistory,
+  summarizeResourceRead,
+} from "@/lib/mcp/execution-history";
+import {
   MCP_INTERACTION_ERROR_CATEGORY_BY_CODE,
   MCP_INTERACTION_MAX_BODY_BYTES,
   type McpInteractionErrorCode,
@@ -60,6 +64,59 @@ function normalizeServerId(value: string) {
   return trimmed;
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
+function resolveTargetUri(payload: unknown) {
+  if (!isRecord(payload) || typeof payload.uri !== "string") {
+    return "unknown-resource-uri";
+  }
+
+  const trimmed = payload.uri.trim();
+  return trimmed.length > 0 ? trimmed : "unknown-resource-uri";
+}
+
+function persistResourceHistory(input: {
+  serverId: string;
+  uri: string;
+  status: "success" | "error";
+  latencyMs: number;
+  requestPayload?: unknown;
+  responsePayload?: unknown;
+  responseContentType?: string | null;
+  error?: {
+    code?: string | null;
+    message?: string | null;
+    details?: string[] | null;
+  } | null;
+  createdAt?: string;
+}) {
+  try {
+    recordExecutionHistory({
+      mcpServerId: input.serverId,
+      actionType: "resource_read",
+      targetType: "resource",
+      targetValue: input.uri,
+      status: input.status,
+      latencyMs: input.latencyMs,
+      requestSummary: summarizeResourceRead(input.uri),
+      requestPayload: input.requestPayload,
+      responseContentType: input.responseContentType ?? null,
+      responsePayload: input.responsePayload,
+      error: input.error,
+      createdAt: input.createdAt,
+    });
+  } catch (error) {
+    console.warn("[mcp-resource-read] failed to persist history", {
+      server_id: input.serverId,
+      uri: input.uri,
+      status: input.status,
+      error: error instanceof Error ? error.message : "unknown_error",
+    });
+  }
+}
+
 async function readJsonWithLimit(request: Request): Promise<ReadResourceRequestPayload> {
   const bodyBuffer = Buffer.from(await request.arrayBuffer());
   if (bodyBuffer.byteLength > MCP_INTERACTION_MAX_BODY_BYTES) {
@@ -107,6 +164,7 @@ export async function POST(
   },
 ) {
   bootstrapServerStore();
+  const requestStartedAt = Date.now();
 
   let serverId: string;
   try {
@@ -120,12 +178,28 @@ export async function POST(
     return errorResponse(400, "INVALID_REQUEST", "Request validation failed");
   }
 
+  let requestPayloadForHistory: unknown = null;
+  let historyTargetUri = "unknown-resource-uri";
   let validatedBody: ReadResourceRequestBody;
   try {
     const payload = await readJsonWithLimit(request);
+    requestPayloadForHistory = payload;
+    historyTargetUri = resolveTargetUri(payload);
     validatedBody = validateReadPayload(payload);
   } catch (error) {
     if (error instanceof PayloadTooLargeError) {
+      persistResourceHistory({
+        serverId,
+        uri: historyTargetUri,
+        status: "error",
+        latencyMs: Date.now() - requestStartedAt,
+        requestPayload: requestPayloadForHistory,
+        error: {
+          code: "VALIDATION_ERROR",
+          message: "Resource read payload exceeds allowed size",
+          details: [`max_bytes=${error.maxBytes}`, `actual_bytes=${error.actualBytes}`],
+        },
+      });
       return errorResponse(422, "VALIDATION_ERROR", "Resource read payload exceeds allowed size", [
         `max_bytes=${error.maxBytes}`,
         `actual_bytes=${error.actualBytes}`,
@@ -133,11 +207,36 @@ export async function POST(
     }
 
     if (error instanceof PayloadValidationError) {
+      persistResourceHistory({
+        serverId,
+        uri: historyTargetUri,
+        status: "error",
+        latencyMs: Date.now() - requestStartedAt,
+        requestPayload: requestPayloadForHistory,
+        error: {
+          code: "INVALID_REQUEST",
+          message: "Request validation failed",
+          details: error.issues,
+        },
+      });
       return errorResponse(400, "INVALID_REQUEST", "Request validation failed", error.issues);
     }
 
+    persistResourceHistory({
+      serverId,
+      uri: historyTargetUri,
+      status: "error",
+      latencyMs: Date.now() - requestStartedAt,
+      requestPayload: requestPayloadForHistory,
+      error: {
+        code: "INVALID_REQUEST",
+        message: "Request validation failed",
+      },
+    });
     return errorResponse(400, "INVALID_REQUEST", "Request validation failed");
   }
+
+  historyTargetUri = validatedBody.uri;
 
   try {
     const resource = await readResource({
@@ -145,12 +244,46 @@ export async function POST(
       uri: validatedBody.uri,
     });
 
+    persistResourceHistory({
+      serverId,
+      uri: validatedBody.uri,
+      status: "success",
+      latencyMs: resource.latency_ms,
+      requestPayload: { uri: validatedBody.uri },
+      responsePayload: resource.result,
+      responseContentType: resource.content_type,
+      createdAt: resource.executed_at,
+    });
+
     return NextResponse.json(resource);
   } catch (error) {
     if (isMcpResourceReadingError(error)) {
+      persistResourceHistory({
+        serverId,
+        uri: validatedBody.uri,
+        status: "error",
+        latencyMs: Date.now() - requestStartedAt,
+        requestPayload: { uri: validatedBody.uri },
+        error: {
+          code: error.code,
+          message: error.message,
+          details: error.details ?? null,
+        },
+      });
       return errorResponse(error.httpStatus, error.code, error.message, error.details);
     }
 
+    persistResourceHistory({
+      serverId,
+      uri: validatedBody.uri,
+      status: "error",
+      latencyMs: Date.now() - requestStartedAt,
+      requestPayload: { uri: validatedBody.uri },
+      error: {
+        code: "INTERNAL_ERROR",
+        message: "Failed to read MCP resource",
+      },
+    });
     return errorResponse(500, "INTERNAL_ERROR", "Failed to read MCP resource");
   }
 }
