@@ -1,7 +1,7 @@
 # Task 1: Tool/Resource Interaction Contract + API Shapes
 
 **Sprint:** 6 - Tool Execution & Resource Reading
-**Status:** not_started
+**Status:** done
 **Depends on:** none
 
 ## Description
@@ -40,6 +40,6 @@ Define stable interaction and payload contracts for tool execution and resource 
 
 ## Acceptance Criteria
 
-- [ ] Tool execution and resource reading contracts are documented and implementation-ready
-- [ ] API shape and error categories are consistent with prior MCP/OAuth APIs
-- [ ] Scope boundaries are explicit (read/execute only, no mutation workflows)
+- [x] Tool execution and resource reading contracts are documented and implementation-ready
+- [x] API shape and error categories are consistent with prior MCP/OAuth APIs
+- [x] Scope boundaries are explicit (read/execute only, no mutation workflows)
