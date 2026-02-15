@@ -1,7 +1,12 @@
-import { Card } from "@/components/ui/card";
+"use client";
+
+import { useMemo, useState } from "react";
+import { Search } from "lucide-react";
+
+import { Input } from "@/components/ui/input";
 import type { McpServer } from "@/lib/types";
 
-import { ServerCard } from "./server-card";
+import { ServerRow } from "./server-row";
 
 type ServerGridProps = {
   servers: McpServer[];
@@ -16,6 +21,15 @@ type ServerGridProps = {
   disconnectingServerIds?: ReadonlySet<string>;
 };
 
+function matchesFilter(server: McpServer, query: string): boolean {
+  const q = query.toLowerCase();
+  return (
+    server.name.toLowerCase().includes(q) ||
+    server.description.toLowerCase().includes(q) ||
+    server.mcp_url.toLowerCase().includes(q)
+  );
+}
+
 export function ServerGrid({
   servers,
   isLoading,
@@ -28,62 +42,94 @@ export function ServerGrid({
   connectingServerIds,
   disconnectingServerIds,
 }: ServerGridProps) {
-  const preconfiguredServers = servers.filter((server) => server.is_preconfigured);
-  const customServers = servers.filter((server) => !server.is_preconfigured);
+  const [filterQuery, setFilterQuery] = useState("");
+
+  const filtered = useMemo(() => {
+    if (!filterQuery.trim()) return servers;
+    return servers.filter((s) => matchesFilter(s, filterQuery.trim()));
+  }, [servers, filterQuery]);
+
+  const preconfigured = useMemo(
+    () => filtered.filter((s) => s.is_preconfigured),
+    [filtered],
+  );
+  const custom = useMemo(
+    () => filtered.filter((s) => !s.is_preconfigured),
+    [filtered],
+  );
 
   if (isLoading) {
     return (
-      <section className="space-y-4">
-        <h2 className="text-sm font-semibold tracking-tight text-muted-foreground uppercase">Servers</h2>
-        <ServerCardSkeletonList />
-      </section>
+      <div className="space-y-3">
+        <SidebarSkeletonList />
+      </div>
     );
   }
 
   return (
-    <section className="space-y-6">
-      <ServerSection
-        title="Pre-configured Servers"
-        emptyMessage="No pre-configured servers found."
-        servers={preconfiguredServers}
-        selectedServerId={selectedServerId}
-        onSelectServer={onSelectServer}
-        onDeleteServer={onDeleteServer}
-        deletingServerIds={deletingServerIds}
-        onConnectServer={onConnectServer}
-        onDisconnectServer={onDisconnectServer}
-        connectingServerIds={connectingServerIds}
-        disconnectingServerIds={disconnectingServerIds}
-      />
-      <ServerSection
-        title="Custom Servers"
-        emptyMessage="No custom servers yet. Add one to get started."
-        servers={customServers}
-        selectedServerId={selectedServerId}
-        onSelectServer={onSelectServer}
-        onDeleteServer={onDeleteServer}
-        deletingServerIds={deletingServerIds}
-        onConnectServer={onConnectServer}
-        onDisconnectServer={onDisconnectServer}
-        connectingServerIds={connectingServerIds}
-        disconnectingServerIds={disconnectingServerIds}
-      />
-    </section>
+    <div className="space-y-4">
+      {servers.length > 3 ? (
+        <div className="relative">
+          <Search className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            type="search"
+            placeholder="Filter servers..."
+            value={filterQuery}
+            onChange={(e) => setFilterQuery(e.target.value)}
+            className="h-8 pl-8 text-sm"
+          />
+        </div>
+      ) : null}
+
+      {filterQuery.trim() && filtered.length === 0 ? (
+        <p className="px-2 py-4 text-center text-sm text-muted-foreground">
+          No servers match &ldquo;{filterQuery.trim()}&rdquo;
+        </p>
+      ) : (
+        <>
+          <ServerSection
+            title="Pre-configured"
+            servers={preconfigured}
+            selectedServerId={selectedServerId}
+            onSelectServer={onSelectServer}
+            onConnectServer={onConnectServer}
+            onDisconnectServer={onDisconnectServer}
+            onDeleteServer={onDeleteServer}
+            connectingServerIds={connectingServerIds}
+            disconnectingServerIds={disconnectingServerIds}
+            deletingServerIds={deletingServerIds}
+          />
+          <ServerSection
+            title="Custom"
+            emptyMessage="No custom servers yet."
+            servers={custom}
+            selectedServerId={selectedServerId}
+            onSelectServer={onSelectServer}
+            onConnectServer={onConnectServer}
+            onDisconnectServer={onDisconnectServer}
+            onDeleteServer={onDeleteServer}
+            connectingServerIds={connectingServerIds}
+            disconnectingServerIds={disconnectingServerIds}
+            deletingServerIds={deletingServerIds}
+          />
+        </>
+      )}
+    </div>
   );
 }
 
 type ServerSectionProps = {
   title: string;
-  emptyMessage: string;
+  emptyMessage?: string;
   servers: McpServer[];
   selectedServerId: string | null;
   onSelectServer: (serverId: string) => void;
-  onDeleteServer?: (serverId: string) => void;
   onConnectServer?: (serverId: string) => void;
   onDisconnectServer?: (serverId: string) => void;
-  deletingServerIds?: ReadonlySet<string>;
+  onDeleteServer?: (serverId: string) => void;
   connectingServerIds?: ReadonlySet<string>;
   disconnectingServerIds?: ReadonlySet<string>;
+  deletingServerIds?: ReadonlySet<string>;
 };
 
 function ServerSection({
@@ -92,55 +138,54 @@ function ServerSection({
   servers,
   selectedServerId,
   onSelectServer,
-  onDeleteServer,
   onConnectServer,
   onDisconnectServer,
-  deletingServerIds,
+  onDeleteServer,
   connectingServerIds,
   disconnectingServerIds,
+  deletingServerIds,
 }: ServerSectionProps) {
+  if (servers.length === 0 && !emptyMessage) return null;
+
   return (
-    <section className="space-y-4">
-      <h2 className="text-sm font-semibold tracking-tight text-muted-foreground uppercase">{title}</h2>
+    <section className="space-y-1">
+      <h2 className="px-2 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+        {title}
+      </h2>
       {servers.length > 0 ? (
-        <div className="flex flex-col gap-2">
+        <div className="flex flex-col gap-0.5">
           {servers.map((server) => (
-            <ServerCard
+            <ServerRow
               key={server.id}
               server={server}
               isSelected={selectedServerId === server.id}
               onSelect={onSelectServer}
-              onDelete={onDeleteServer}
               onConnect={onConnectServer}
               onDisconnect={onDisconnectServer}
-              isDeleting={deletingServerIds?.has(server.id) ?? false}
+              onDelete={onDeleteServer}
               isConnecting={connectingServerIds?.has(server.id) ?? false}
               isDisconnecting={disconnectingServerIds?.has(server.id) ?? false}
+              isDeleting={deletingServerIds?.has(server.id) ?? false}
             />
           ))}
         </div>
-      ) : (
-        <div className="rounded-lg border border-dashed p-6 text-sm text-muted-foreground">
-          {emptyMessage}
-        </div>
-      )}
+      ) : emptyMessage ? (
+        <p className="px-2 py-3 text-xs text-muted-foreground">{emptyMessage}</p>
+      ) : null}
     </section>
   );
 }
 
-function ServerCardSkeletonList() {
+function SidebarSkeletonList() {
   return (
-    <div className="flex flex-col gap-2">
+    <div className="flex flex-col gap-1">
       {Array.from({ length: 4 }).map((_, index) => (
-        <Card key={index} className="p-3">
-          <div className="flex animate-pulse items-center gap-3">
-            <div className="size-8 shrink-0 rounded-md bg-muted" />
-            <div className="min-w-0 flex-1 space-y-1.5">
-              <div className="h-3.5 w-28 rounded bg-muted" />
-              <div className="h-3 w-16 rounded bg-muted" />
-            </div>
+        <div key={index} className="flex animate-pulse items-center gap-2.5 rounded-md px-2 py-1.5">
+          <div className="size-6 shrink-0 rounded bg-muted" />
+          <div className="min-w-0 flex-1 space-y-1">
+            <div className="h-3 w-24 rounded bg-muted" />
           </div>
-        </Card>
+        </div>
       ))}
     </div>
   );

@@ -35,8 +35,8 @@ Task 5 → Task 6 (Accessibility + Regression QA)
 | # | Task | File | Status | Depends On |
 |---|------|------|--------|------------|
 | 1 | UI Information Architecture + Interaction Contract | [task-1](task-1-ui-information-architecture-and-interaction-contract.md) | done | — |
-| 2 | Desktop Two-Pane Shell Layout | [task-2](task-2-desktop-two-pane-shell-layout.md) | not_started | Task 1 |
-| 3 | Sidebar Server Navigation + Actions | [task-3](task-3-sidebar-server-navigation-and-actions.md) | not_started | Task 2 |
+| 2 | Desktop Two-Pane Shell Layout | [task-2](task-2-desktop-two-pane-shell-layout.md) | done | Task 1 |
+| 3 | Sidebar Server Navigation + Actions | [task-3](task-3-sidebar-server-navigation-and-actions.md) | done | Task 2 |
 | 4 | Main Details Panel (Inspector Migration) | [task-4](task-4-main-details-panel-inspector-migration.md) | not_started | Task 2 |
 | 5 | Mobile Slide-Over Server Picker | [task-5](task-5-mobile-slide-over-server-picker.md) | not_started | Task 3, Task 4 |
 | 6 | Accessibility, Keyboard UX, and Regression QA | [task-6](task-6-accessibility-keyboard-and-regression-qa.md) | not_started | Task 5 |
