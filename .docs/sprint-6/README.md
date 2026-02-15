@@ -38,7 +38,7 @@ Task 4 + Task 5 → Task 6 (Execution History + Cross-Server Regression QA)
 | 2 | Tool Execution Service + API Route | [task-2](task-2-tool-execution-service-and-api-route.md) | done | Task 1 |
 | 3 | Resource Reading Service + API Route | [task-3](task-3-resource-reading-service-and-api-route.md) | done | Task 1 |
 | 4 | Dynamic Tool Parameter Form + Execute UX | [task-4](task-4-dynamic-tool-parameter-form-and-execute-ux.md) | done | Task 2 |
-| 5 | Resource Viewer + JSON Result Rendering | [task-5](task-5-resource-viewer-and-json-result-rendering.md) | not_started | Task 3 |
+| 5 | Resource Viewer + JSON Result Rendering | [task-5](task-5-resource-viewer-and-json-result-rendering.md) | done | Task 3 |
 | 6 | Execution History + Cross-Server Regression QA | [task-6](task-6-execution-history-and-cross-server-regression-qa.md) | not_started | Task 4, Task 5 |
 
 ## Definition of Done

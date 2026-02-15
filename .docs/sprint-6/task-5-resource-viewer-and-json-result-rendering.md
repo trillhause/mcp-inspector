@@ -1,7 +1,7 @@
 # Task 5: Resource Viewer + JSON Result Rendering
 
 **Sprint:** 6 - Tool Execution & Resource Reading
-**Status:** not_started
+**Status:** done
 **Depends on:** Task 3
 
 ## Description
@@ -40,7 +40,7 @@ Create result presentation components for tool outputs and resource content with
 
 ## Acceptance Criteria
 
-- [ ] Tool and resource results are displayed in readable, content-aware components
-- [ ] JSON syntax highlighting is implemented and stable
-- [ ] Error diagnostics and metadata are visible and actionable
-- [ ] Large payload rendering does not break the layout
+- [x] Tool and resource results are displayed in readable, content-aware components
+- [x] JSON syntax highlighting is implemented and stable
+- [x] Error diagnostics and metadata are visible and actionable
+- [x] Large payload rendering does not break the layout

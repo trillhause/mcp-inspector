@@ -1,9 +1,14 @@
 "use client";
 
 import { type FormEvent, useCallback, useMemo, useState } from "react";
-import { AlertCircle, CheckCircle2, Loader2, RotateCcw } from "lucide-react";
+import { AlertCircle, CheckCircle2, Copy, Loader2, RotateCcw } from "lucide-react";
 
 import type { ToolCapability } from "@/components/capability-list-rows";
+import { InteractionResultMetadata } from "@/components/interaction-result-metadata";
+import {
+  JsonPayloadViewer,
+  normalizePayload,
+} from "@/components/json-payload-viewer";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -17,6 +22,7 @@ import { cn } from "@/lib/utils";
 
 type ToolExecutionWorkspaceProps = {
   serverId: string;
+  serverName: string;
   tools: ToolCapability[];
 };
 
@@ -60,6 +66,7 @@ type ToolExecutionError = {
   message: string;
   details: string[];
   source: "client" | "server" | "network";
+  failedAt: string;
 };
 
 type ExecuteApiErrorPayload = {
@@ -546,7 +553,31 @@ function getFieldHint(field: SchemaField) {
   return hints.join(" • ");
 }
 
-export function ToolExecutionWorkspace({ serverId, tools }: ToolExecutionWorkspaceProps) {
+function buildToolErrorDiagnostics(
+  error: ToolExecutionError,
+  toolName: string,
+  serverName: string,
+) {
+  return JSON.stringify(
+    {
+      code: error.code,
+      source: error.source,
+      message: error.message,
+      details: error.details,
+      server: serverName,
+      tool_name: toolName,
+      failed_at: error.failedAt,
+    },
+    null,
+    2,
+  );
+}
+
+export function ToolExecutionWorkspace({
+  serverId,
+  serverName,
+  tools,
+}: ToolExecutionWorkspaceProps) {
   const [selectedToolName, setSelectedToolName] = useState<string>(tools[0]?.name ?? "");
 
   const resolvedToolName = useMemo(() => {
@@ -614,6 +645,7 @@ export function ToolExecutionWorkspace({ serverId, tools }: ToolExecutionWorkspa
           <ToolExecutionForm
             key={`${serverId}:${selectedTool.name}`}
             serverId={serverId}
+            serverName={serverName}
             selectedTool={selectedTool}
           />
         ) : (
@@ -626,9 +658,11 @@ export function ToolExecutionWorkspace({ serverId, tools }: ToolExecutionWorkspa
 
 function ToolExecutionForm({
   serverId,
+  serverName,
   selectedTool,
 }: {
   serverId: string;
+  serverName: string;
   selectedTool: ToolCapability;
 }) {
   const formDefinition = useMemo(
@@ -645,6 +679,16 @@ function ToolExecutionForm({
   const [executionError, setExecutionError] = useState<ToolExecutionError | null>(null);
   const [lastSubmittedArguments, setLastSubmittedArguments] = useState<Record<string, unknown> | null>(null);
   const [hasSubmitted, setHasSubmitted] = useState(false);
+  const [clipboardNotice, setClipboardNotice] = useState<string | null>(null);
+
+  const copyText = useCallback(async (text: string, successMessage: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setClipboardNotice(successMessage);
+    } catch {
+      setClipboardNotice("Clipboard copy failed.");
+    }
+  }, []);
 
   const updateDraftValue = useCallback(
     (fieldName: string, value: string) => {
@@ -668,6 +712,7 @@ function ToolExecutionForm({
       }
       setExecutionResult(null);
       setExecutionError(null);
+      setClipboardNotice(null);
     },
     [formDefinition, hasSubmitted, runState],
   );
@@ -677,6 +722,7 @@ function ToolExecutionForm({
       setRunState("executing");
       setExecutionResult(null);
       setExecutionError(null);
+      setClipboardNotice(null);
 
       try {
         const response = await fetch(
@@ -703,6 +749,7 @@ function ToolExecutionForm({
             message,
             details: normalizeErrorDetails(normalizedPayload.error?.details),
             source: "server",
+            failedAt: new Date().toISOString(),
           });
           setRunState("error");
           return;
@@ -715,6 +762,7 @@ function ToolExecutionForm({
             message: "Execution succeeded but response payload was invalid.",
             details: [],
             source: "client",
+            failedAt: new Date().toISOString(),
           });
           setRunState("error");
           return;
@@ -728,6 +776,7 @@ function ToolExecutionForm({
           message: error instanceof Error ? error.message : "Tool execution request failed.",
           details: [],
           source: "network",
+          failedAt: new Date().toISOString(),
         });
         setRunState("error");
       }
@@ -753,6 +802,7 @@ function ToolExecutionForm({
           message: "Please correct validation errors before execution.",
           details: validation.summaryErrors,
           source: "client",
+          failedAt: new Date().toISOString(),
         });
         setRunState("error");
         return;
@@ -926,11 +976,14 @@ function ToolExecutionForm({
           <RotateCcw className="size-4" />
           Retry Last Run
         </Button>
+        {clipboardNotice ? (
+          <p className="text-xs text-muted-foreground">{clipboardNotice}</p>
+        ) : null}
       </div>
 
       {executionError ? (
         <div
-          className="rounded-md border border-destructive/40 bg-destructive/5 p-3 text-xs text-destructive"
+          className="space-y-2 rounded-md border border-destructive/40 bg-destructive/5 p-3 text-xs text-destructive"
           role="alert"
         >
           <div className="flex items-center gap-2 font-medium">
@@ -944,24 +997,59 @@ function ToolExecutionForm({
               ))}
             </ul>
           ) : null}
+          <pre className="max-h-48 overflow-auto rounded border bg-background p-2 font-mono text-[11px] whitespace-pre-wrap break-words text-foreground">
+            {buildToolErrorDiagnostics(executionError, selectedTool.name, serverName)}
+          </pre>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() =>
+              void copyText(
+                buildToolErrorDiagnostics(executionError, selectedTool.name, serverName),
+                "Copied error diagnostics.",
+              )
+            }
+          >
+            <Copy className="size-4" />
+            Copy Diagnostics
+          </Button>
         </div>
       ) : null}
 
       {executionResult ? (
         <div
-          className="rounded-md border border-emerald-500/40 bg-emerald-500/5 p-3 text-xs text-emerald-800"
+          className="space-y-3 rounded-md border border-emerald-500/40 bg-emerald-500/5 p-3 text-xs text-emerald-800 dark:text-emerald-200"
           role="status"
         >
           <div className="flex items-center gap-2 font-medium">
             <CheckCircle2 className="size-4" />
             Execution succeeded in {executionResult.latency_ms} ms
           </div>
-          <p className="mt-1 text-emerald-900">
-            Executed at {executionResult.executed_at}
-          </p>
-          <pre className="mt-2 max-h-44 overflow-auto rounded bg-background p-2 font-mono text-[11px] text-foreground">
-            {JSON.stringify(executionResult.result, null, 2)}
-          </pre>
+          <InteractionResultMetadata
+            serverName={serverName}
+            targetLabel={selectedTool.name}
+            executedAt={executionResult.executed_at}
+            latencyMs={executionResult.latency_ms}
+            contentType={executionResult.content_type}
+          />
+          <div className="flex flex-wrap gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() =>
+                void copyText(
+                  normalizePayload(executionResult.result).text,
+                  "Copied response payload.",
+                )
+              }
+            >
+              <Copy className="size-4" />
+              Copy Payload
+            </Button>
+          </div>
+          <JsonPayloadViewer value={executionResult.result} maxHeightClassName="max-h-96" />
         </div>
       ) : null}
     </form>

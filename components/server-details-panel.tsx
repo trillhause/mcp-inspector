@@ -7,11 +7,11 @@ import { Loader2 } from "lucide-react";
 import {
   CapabilityEmptyState,
   PromptCapabilityRow,
-  ResourceCapabilityRow,
   type PromptCapability,
   type ResourceCapability,
   type ToolCapability,
 } from "@/components/capability-list-rows";
+import { ResourceReadingWorkspace } from "@/components/resource-reading-workspace";
 import { ToolExecutionWorkspace } from "@/components/tool-execution-workspace";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -442,6 +442,7 @@ function SelectedServerContent({
                 {capabilities && capabilities.tools.length > 0 ? (
                   <ToolExecutionWorkspace
                     serverId={server.id}
+                    serverName={server.name}
                     tools={capabilities.tools}
                   />
                 ) : (
@@ -453,14 +454,11 @@ function SelectedServerContent({
                 className="mt-0 min-h-0 flex-1 overflow-y-auto pr-1"
               >
                 {capabilities && capabilities.resources.length > 0 ? (
-                  <ul className="space-y-2">
-                    {capabilities.resources.map((resource, index) => (
-                      <ResourceCapabilityRow
-                        key={`${resource.uri}-${index}`}
-                        resource={resource}
-                      />
-                    ))}
-                  </ul>
+                  <ResourceReadingWorkspace
+                    serverId={server.id}
+                    serverName={server.name}
+                    resources={capabilities.resources}
+                  />
                 ) : (
                   <CapabilityEmptyState message="No resources discovered for this server." />
                 )}
