@@ -44,12 +44,23 @@ export function ServerRow({
   isDeleting = false,
 }: ServerRowProps) {
   const isBusy = isConnecting || isDisconnecting || isDeleting;
+  const isServerDisabled = !server.is_enabled;
   const isConnected = server.connection_status === "connected";
   const isExpired = server.connection_status === "expired";
   const isTokenExpiringSoon =
-    server.connection_status === "connected" && server.token_lifecycle_state === "expiring_soon";
-  const statusDotClass = isTokenExpiringSoon ? "bg-amber-500" : STATUS_DOT[server.connection_status];
-  const statusLabel = isTokenExpiringSoon ? "Expiring soon" : STATUS_LABEL[server.connection_status];
+    !isServerDisabled &&
+    server.connection_status === "connected" &&
+    server.token_lifecycle_state === "expiring_soon";
+  const statusDotClass = isServerDisabled
+    ? "bg-muted-foreground/50"
+    : isTokenExpiringSoon
+      ? "bg-amber-500"
+      : STATUS_DOT[server.connection_status];
+  const statusLabel = isServerDisabled
+    ? "Disabled"
+    : isTokenExpiringSoon
+      ? "Expiring soon"
+      : STATUS_LABEL[server.connection_status];
 
   const capabilityHint =
     server.tool_count != null && server.tool_count > 0
@@ -94,6 +105,11 @@ export function ServerRow({
               Expiring
             </Badge>
           ) : null}
+          {isServerDisabled ? (
+            <Badge variant="outline" className="ml-1 px-1.5 py-0.5 text-[10px] font-normal">
+              Disabled
+            </Badge>
+          ) : null}
           {isSelected && capabilityHint ? (
             <Badge className="ml-3 px-1.5 py-0.5 text-[11px] font-normal bg-slate-200 text-muted-foreground">
               {capabilityHint}
@@ -119,7 +135,7 @@ export function ServerRow({
             size="icon-xs"
             className="text-muted-foreground hover:text-foreground"
             onClick={() => onDisconnect?.(server.id)}
-            disabled={isBusy}
+            disabled={isBusy || isServerDisabled}
             aria-label={`Disconnect ${server.name}`}
           >
             {isDisconnecting ? (
@@ -135,7 +151,7 @@ export function ServerRow({
             size="icon-xs"
             className="text-muted-foreground hover:text-foreground"
             onClick={() => onConnect?.(server.id)}
-            disabled={isBusy}
+            disabled={isBusy || isServerDisabled}
             aria-label={`${isExpired ? "Reconnect" : "Connect"} ${server.name}`}
           >
             {isConnecting ? (

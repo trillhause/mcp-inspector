@@ -17,6 +17,7 @@ import {
   SkeletonCard,
 } from "@/components/loading-state-primitives";
 import { ResourceReadingWorkspace } from "@/components/resource-reading-workspace";
+import { ServerSettingsWorkspace } from "@/components/server-settings-workspace";
 import { ToolExecutionWorkspace } from "@/components/tool-execution-workspace";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -52,6 +53,7 @@ type ServerDetailsPanelProps = {
     serverId: string,
     counts: { tools: number; resources: number },
   ) => void;
+  onServerUpdated?: (server: McpServer) => void;
   isConnecting?: boolean;
   isDisconnecting?: boolean;
 };
@@ -100,7 +102,7 @@ type RefreshTokenSuccessPayload = {
   last_refreshed_at: string | null;
 };
 
-type CapabilitiesTab = "tools" | "resources" | "prompts" | "history";
+type CapabilitiesTab = "tools" | "resources" | "prompts" | "history" | "settings";
 const CAPABILITIES_REQUEST_TIMEOUT_MS = 20_000;
 const SURFACE_STATE_LABELS: Record<McpSurfaceState, string> = {
   idle: "Idle",
@@ -137,6 +139,7 @@ export function ServerDetailsPanel({
   onDisconnect,
   onTokenLifecycleUpdated,
   onCapabilitiesLoaded,
+  onServerUpdated,
   isConnecting = false,
   isDisconnecting = false,
 }: ServerDetailsPanelProps) {
@@ -148,6 +151,7 @@ export function ServerDetailsPanel({
         onDisconnect={onDisconnect}
         onTokenLifecycleUpdated={onTokenLifecycleUpdated}
         onCapabilitiesLoaded={onCapabilitiesLoaded}
+        onServerUpdated={onServerUpdated}
         isConnecting={isConnecting}
         isDisconnecting={isDisconnecting}
       />
@@ -161,6 +165,7 @@ function SelectedServerContent({
   onDisconnect,
   onTokenLifecycleUpdated,
   onCapabilitiesLoaded,
+  onServerUpdated,
   isConnecting,
   isDisconnecting,
 }: {
@@ -178,6 +183,7 @@ function SelectedServerContent({
     serverId: string,
     counts: { tools: number; resources: number },
   ) => void;
+  onServerUpdated?: (server: McpServer) => void;
   isConnecting: boolean;
   isDisconnecting: boolean;
 }) {
@@ -197,14 +203,15 @@ function SelectedServerContent({
   const capabilitiesCacheRef = useRef<Map<string, CapabilitiesApiPayload>>(new Map());
 
   const status = STATUS_STYLES[server.connection_status];
+  const isServerDisabled = !server.is_enabled;
   const isConnected = server.connection_status === "connected";
-  const canInspectCapabilities = server.connection_status !== "disconnected";
+  const canInspectCapabilities = server.is_enabled && server.connection_status !== "disconnected";
   const canManualRefreshCapabilities = canInspectCapabilities && server.connection_status !== "expired";
   const isBusy = isConnecting || isDisconnecting || isRefreshingToken;
   const isTokenExpiringSoon = server.token_lifecycle_state === "expiring_soon";
   const isTokenExpired = server.connection_status === "expired" || server.token_lifecycle_state === "expired";
   const showTokenLifecycleWarning =
-    server.auth_mode === "oauth" && (isTokenExpiringSoon || isTokenExpired);
+    server.auth_mode === "oauth" && server.is_enabled && (isTokenExpiringSoon || isTokenExpired);
   const tokenLifecycleBannerMessage = useMemo(() => {
     if (isTokenExpired) {
       return "Stored credentials have expired. Reconnect this server to continue authenticated actions.";
@@ -220,6 +227,9 @@ function SelectedServerContent({
       }
     : { tools: 0, resources: 0, prompts: 0 };
   const isHistoryTab = activeTab === "history";
+  const isSettingsTab = activeTab === "settings";
+  const isCapabilitiesTab =
+    activeTab === "tools" || activeTab === "resources" || activeTab === "prompts";
   const hasCapabilitiesData = capabilities !== null;
   const hasDiscoveredCapabilities = capabilityCounts.tools + capabilityCounts.resources + capabilityCounts.prompts > 0;
   const isCapabilitiesStale = capabilities?.stale === true;
@@ -555,6 +565,7 @@ function SelectedServerContent({
           />
           <p className="truncate text-sm font-semibold sm:text-base">{server.name}</p>
           <Badge className={status.className}>{status.label}</Badge>
+          {isServerDisabled ? <Badge variant="outline">Disabled</Badge> : null}
         </div>
         <div className="flex shrink-0 items-center gap-2">
           {isConnected ? (
@@ -563,7 +574,7 @@ function SelectedServerContent({
               variant="outline"
               size="sm"
               onClick={() => onDisconnect?.(server.id)}
-              disabled={isBusy}
+              disabled={isBusy || isServerDisabled}
             >
               {isDisconnecting ? (
                 <>
@@ -579,7 +590,7 @@ function SelectedServerContent({
               type="button"
               size="sm"
               onClick={() => onConnect?.(server.id)}
-              disabled={isBusy}
+              disabled={isBusy || isServerDisabled}
             >
               {isConnecting ? (
                 <>
@@ -595,6 +606,23 @@ function SelectedServerContent({
           )}
         </div>
       </div>
+
+      {isServerDisabled ? (
+        <div
+          className="mt-3 flex flex-wrap items-center justify-between gap-3 rounded-md border border-muted-foreground/30 bg-muted/40 p-3 text-xs text-muted-foreground"
+          role="status"
+        >
+          <p>This server is disabled. Enable it in settings to reconnect and run MCP actions.</p>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            onClick={() => setActiveTab("settings")}
+          >
+            Open settings
+          </Button>
+        </div>
+      ) : null}
 
       {showTokenLifecycleWarning ? (
         <div
@@ -652,7 +680,7 @@ function SelectedServerContent({
         className="mt-3 flex min-h-0 flex-1 flex-col"
       >
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <TabsList className="w-full sm:w-auto" aria-label="Server capabilities">
+          <TabsList className="w-full sm:w-auto" aria-label="Server sections">
             <TabsTrigger value="tools" disabled={!canInspectCapabilities}>
               Tools
               <Badge variant="secondary">{capabilityCounts.tools}</Badge>
@@ -666,14 +694,15 @@ function SelectedServerContent({
               <Badge variant="secondary">{capabilityCounts.prompts}</Badge>
             </TabsTrigger>
             <TabsTrigger value="history">History</TabsTrigger>
+            <TabsTrigger value="settings">Settings</TabsTrigger>
           </TabsList>
           <div className="flex items-center gap-2">
-            {!isHistoryTab ? (
+            {isCapabilitiesTab ? (
               <Badge variant="outline" className="h-8 px-2 text-[11px]">
                 {SURFACE_STATE_LABELS[capabilitiesSurfaceState]}
               </Badge>
             ) : null}
-            {!isHistoryTab ? (
+            {isCapabilitiesTab ? (
               <Button
                 type="button"
                 variant="outline"
@@ -696,9 +725,15 @@ function SelectedServerContent({
         </div>
         <div
           className="mt-3 min-h-0 flex-1 rounded-lg border bg-muted/20 p-3"
-          data-surface-state={isHistoryTab ? "history" : capabilitiesSurfaceState}
+          data-surface-state={
+            isHistoryTab ? "history" : isSettingsTab ? "settings" : capabilitiesSurfaceState
+          }
         >
-          {isHistoryTab ? (
+          {isSettingsTab ? (
+            <TabsContent value="settings" className="mt-0 min-h-0 flex-1 overflow-y-auto pr-1">
+              <ServerSettingsWorkspace server={server} onServerUpdated={onServerUpdated} />
+            </TabsContent>
+          ) : isHistoryTab ? (
             <TabsContent value="history" className="mt-0 min-h-0 flex-1 overflow-y-auto pr-1">
               <ExecutionHistoryWorkspace
                 serverId={server.id}
@@ -708,7 +743,11 @@ function SelectedServerContent({
               />
             </TabsContent>
           ) : !canInspectCapabilities ? (
-            <DisconnectedCapabilitiesState />
+            isServerDisabled ? (
+              <DisabledCapabilitiesState onOpenSettings={() => setActiveTab("settings")} />
+            ) : (
+              <DisconnectedCapabilitiesState />
+            )
           ) : capabilitiesSurfaceState === "error" ? (
             <CapabilitiesErrorState
               error={capabilitiesError}
@@ -839,6 +878,21 @@ function DisconnectedCapabilitiesState() {
       <p className="text-sm text-muted-foreground">
         Connect this server to discover tools, resources, and prompts.
       </p>
+    </div>
+  );
+}
+
+function DisabledCapabilitiesState({ onOpenSettings }: { onOpenSettings: () => void }) {
+  return (
+    <div className="flex h-full items-center justify-center rounded-md bg-muted/10 px-6 text-center">
+      <div className="space-y-3">
+        <p className="text-sm text-muted-foreground">
+          This server is currently disabled. Enable it in settings to continue.
+        </p>
+        <Button type="button" variant="outline" size="sm" onClick={onOpenSettings}>
+          Open settings
+        </Button>
+      </div>
     </div>
   );
 }

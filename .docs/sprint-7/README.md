@@ -42,7 +42,7 @@ Task 5 + Task 6 → Task 7 (Cross-Server Regression Matrix + Release QA)
 | 3 | Actionable Error Handling + Recovery UX | [task-3](task-3-actionable-error-handling-and-recovery-ux.md) | done | Task 1 |
 | 4 | Token Expiry Warning + Reconnect Hardening | [task-4](task-4-token-expiry-warning-and-reauth-flow-hardening.md) | done | Task 1 |
 | 5 | Execution History View + Run Detail Drilldown | [task-5](task-5-execution-history-tab-and-run-detail-drilldown.md) | done | Task 2, Task 3, Task 4 |
-| 6 | Server Settings Panel + Update Workflows | [task-6](task-6-server-settings-panel-and-update-workflows.md) | not_started | Task 1 |
+| 6 | Server Settings Panel + Update Workflows | [task-6](task-6-server-settings-panel-and-update-workflows.md) | done | Task 1 |
 | 7 | Cross-Server Regression Matrix + Release QA | [task-7](task-7-cross-server-regression-matrix-and-release-qa.md) | not_started | Task 5, Task 6 |
 
 ## Definition of Done

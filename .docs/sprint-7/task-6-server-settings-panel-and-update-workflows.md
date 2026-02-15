@@ -1,7 +1,7 @@
 # Task 6: Server Settings Panel + Update Workflows
 
 **Sprint:** 7 - Polish & Multi-Server Testing
-**Status:** not_started
+**Status:** done
 **Depends on:** Task 1
 
 ## Description
@@ -40,6 +40,6 @@ Add a server settings experience for editing supported server configuration fiel
 
 ## Acceptance Criteria
 
-- [ ] Server settings UI exists with validated edit/save workflow
-- [ ] Allowed settings persist through stable API updates
-- [ ] Guardrails prevent unsupported provider/preconfigured edits cleanly
+- [x] Server settings UI exists with validated edit/save workflow
+- [x] Allowed settings persist through stable API updates
+- [x] Guardrails prevent unsupported provider/preconfigured edits cleanly

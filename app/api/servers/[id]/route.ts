@@ -1,10 +1,8 @@
 import { NextResponse } from "next/server";
 
-import { dbExecute, dbQueryAll, dbQueryFirst } from "@/lib/db";
+import { dbExecute, dbQueryFirst } from "@/lib/db";
 import {
   bootstrapServerStore,
-  canonicalizeMcpUrl,
-  findCanonicalUrlConflict,
   isServerTransport,
   mapServerRowToMcpServer,
   PayloadValidationError,
@@ -67,7 +65,6 @@ function getServerById(serverId: string) {
 type UpdateServerPayload = {
   name?: string;
   description?: string | null;
-  mcp_url?: string;
   transport?: ServerTransport;
   is_enabled?: boolean;
 };
@@ -95,19 +92,7 @@ function validateUpdatePayload(payload: Record<string, unknown>) {
   }
 
   if ("mcp_url" in payload) {
-    if (typeof payload.mcp_url !== "string") {
-      issues.push("mcp_url must be a string");
-    } else {
-      try {
-        updates.mcp_url = canonicalizeMcpUrl(payload.mcp_url).canonicalUrl;
-      } catch (error) {
-        if (error instanceof PayloadValidationError) {
-          issues.push(...error.issues);
-        } else {
-          issues.push("mcp_url is invalid");
-        }
-      }
-    }
+    issues.push("mcp_url is immutable and cannot be updated");
   }
 
   if ("transport" in payload) {
@@ -128,7 +113,7 @@ function validateUpdatePayload(payload: Record<string, unknown>) {
 
   if (Object.keys(updates).length === 0) {
     issues.push(
-      "At least one editable field is required: name, description, mcp_url, transport, is_enabled",
+      "At least one editable field is required: name, description, transport, is_enabled",
     );
   }
 
@@ -153,11 +138,6 @@ function buildUpdateStatement(serverId: string, updates: UpdateServerPayload) {
     params.description = updates.description;
   }
 
-  if (updates.mcp_url !== undefined) {
-    clauses.push("mcp_url = @mcp_url");
-    params.mcp_url = updates.mcp_url;
-  }
-
   if (updates.transport !== undefined) {
     clauses.push("transport = @transport");
     params.transport = updates.transport;
@@ -174,6 +154,30 @@ function buildUpdateStatement(serverId: string, updates: UpdateServerPayload) {
     sql: `UPDATE mcp_servers SET ${clauses.join(", ")} WHERE id = @id`,
     params,
   };
+}
+
+function validatePreconfiguredGuardrails(
+  server: Pick<ServerRow, "is_preconfigured">,
+  updates: UpdateServerPayload,
+) {
+  if (server.is_preconfigured !== 1) {
+    return;
+  }
+
+  const disallowedFields: string[] = [];
+  if (updates.name !== undefined) {
+    disallowedFields.push("name");
+  }
+  if (updates.description !== undefined) {
+    disallowedFields.push("description");
+  }
+
+  if (disallowedFields.length > 0) {
+    throw new PayloadValidationError([
+      `Pre-configured servers have read-only fields: ${disallowedFields.join(", ")}.`,
+      "Only transport and enabled state can be updated for pre-configured servers.",
+    ]);
+  }
 }
 
 export async function GET(
@@ -202,9 +206,10 @@ export async function PATCH(
   bootstrapServerStore();
   const { id } = await context.params;
 
-  const existingServer = dbQueryFirst<{ id: string }>("SELECT id FROM mcp_servers WHERE id = ? LIMIT 1", [
-    id,
-  ]);
+  const existingServer = dbQueryFirst<Pick<ServerRow, "id" | "is_preconfigured">>(
+    "SELECT id, is_preconfigured FROM mcp_servers WHERE id = ? LIMIT 1",
+    [id],
+  );
   if (!existingServer) {
     return errorResponse(404, "NOT_FOUND", "Server not found");
   }
@@ -229,31 +234,19 @@ export async function PATCH(
     return errorResponse(400, "INVALID_REQUEST", "Request validation failed");
   }
 
-  if (updates.mcp_url) {
-    const existingRows = dbQueryAll<{ id: string; mcp_url: string }>(
-      "SELECT id, mcp_url FROM mcp_servers",
-    );
-    const conflictingServerId = findCanonicalUrlConflict(existingRows, updates.mcp_url, id);
-    if (conflictingServerId) {
-      return errorResponse(
-        409,
-        "SERVER_ALREADY_EXISTS",
-        "A server with this canonical MCP URL already exists",
-      );
+  try {
+    validatePreconfiguredGuardrails(existingServer, updates);
+  } catch (error) {
+    if (error instanceof PayloadValidationError) {
+      return errorResponse(403, "FORBIDDEN", "Requested update is not allowed", error.issues);
     }
+    return errorResponse(403, "FORBIDDEN", "Requested update is not allowed");
   }
 
   try {
     const { sql, params } = buildUpdateStatement(id, updates);
     dbExecute(sql, params);
-  } catch (error) {
-    if (error instanceof Error && error.message.includes("UNIQUE constraint failed")) {
-      return errorResponse(
-        409,
-        "SERVER_ALREADY_EXISTS",
-        "A server with this MCP URL already exists",
-      );
-    }
+  } catch {
     return errorResponse(500, "INTERNAL_ERROR", "Failed to update server");
   }
 
