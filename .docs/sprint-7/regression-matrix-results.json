@@ -1,0 +1,375 @@
+{
+  "generated_at": "2026-02-15T02:59:17.369Z",
+  "execution_mode": "in-process-route-invocation",
+  "db_path": "data/mcp-client.db",
+  "providers": [
+    "notion",
+    "sentry",
+    "posthog"
+  ],
+  "provider_reports": [
+    {
+      "provider": "notion",
+      "scenarios": [
+        {
+          "scenario": "provider-present-in-server-list",
+          "status": "pass",
+          "detail": "Provider is available for matrix execution",
+          "evidence": {
+            "provider": "notion",
+            "mcp_url": "https://mcp.notion.com/mcp"
+          }
+        },
+        {
+          "scenario": "settings-guardrail-name-read-only",
+          "status": "pass",
+          "detail": "Pre-configured name edit blocked with FORBIDDEN guardrail"
+        },
+        {
+          "scenario": "settings-transport-update",
+          "status": "pass",
+          "detail": "Transport persisted via PATCH /api/servers/[id]",
+          "evidence": {
+            "from": "auto",
+            "to": "streamable_http"
+          }
+        },
+        {
+          "scenario": "settings-enabled-toggle",
+          "status": "pass",
+          "detail": "Enabled state can be toggled and restored"
+        },
+        {
+          "scenario": "history-list-fetch",
+          "status": "pass",
+          "detail": "History endpoint returned a valid list response",
+          "evidence": {
+            "item_count": 5
+          }
+        },
+        {
+          "scenario": "capabilities-fetch-and-retryable-state",
+          "status": "pass",
+          "detail": "Capabilities route returned either data or a mapped actionable error",
+          "evidence": {
+            "status": 401,
+            "code": "RECONNECT_REQUIRED",
+            "ok": false
+          }
+        },
+        {
+          "scenario": "connect-retry-determinism",
+          "status": "pass",
+          "detail": "Repeated connect attempts produced deterministic, actionable outcomes",
+          "evidence": {
+            "attempt_1": "error:502:DISCOVERY_FAILED",
+            "attempt_2": "error:502:DISCOVERY_FAILED"
+          }
+        },
+        {
+          "scenario": "disconnect-flow",
+          "status": "pass",
+          "detail": "Disconnect endpoint completed and returned disconnected next_action"
+        },
+        {
+          "scenario": "tool-execution-negative-path",
+          "status": "pass",
+          "detail": "Tool execution returned an actionable error code for negative-path input",
+          "evidence": {
+            "code": "NOT_CONNECTED",
+            "status": 409
+          }
+        },
+        {
+          "scenario": "resource-read-negative-path",
+          "status": "pass",
+          "detail": "Resource read returned an actionable error code for negative-path input",
+          "evidence": {
+            "code": "NOT_CONNECTED",
+            "status": 409
+          }
+        },
+        {
+          "scenario": "history-drilldown-data-available",
+          "status": "pass",
+          "detail": "History includes latest tool/resource entries for drilldown",
+          "evidence": {
+            "tool_entry": true,
+            "resource_entry": true,
+            "total_items": 8
+          }
+        }
+      ],
+      "summary": {
+        "pass": 11,
+        "fail": 0,
+        "warn": 0,
+        "skip": 0
+      }
+    },
+    {
+      "provider": "sentry",
+      "scenarios": [
+        {
+          "scenario": "provider-present-in-server-list",
+          "status": "pass",
+          "detail": "Provider is available for matrix execution",
+          "evidence": {
+            "provider": "sentry",
+            "mcp_url": "https://mcp.sentry.dev/mcp"
+          }
+        },
+        {
+          "scenario": "settings-guardrail-name-read-only",
+          "status": "pass",
+          "detail": "Pre-configured name edit blocked with FORBIDDEN guardrail"
+        },
+        {
+          "scenario": "settings-transport-update",
+          "status": "pass",
+          "detail": "Transport persisted via PATCH /api/servers/[id]",
+          "evidence": {
+            "from": "auto",
+            "to": "streamable_http"
+          }
+        },
+        {
+          "scenario": "settings-enabled-toggle",
+          "status": "pass",
+          "detail": "Enabled state can be toggled and restored"
+        },
+        {
+          "scenario": "history-list-fetch",
+          "status": "pass",
+          "detail": "History endpoint returned a valid list response",
+          "evidence": {
+            "item_count": 0
+          }
+        },
+        {
+          "scenario": "capabilities-fetch-and-retryable-state",
+          "status": "pass",
+          "detail": "Capabilities route returned either data or a mapped actionable error",
+          "evidence": {
+            "status": 409,
+            "code": "NOT_CONNECTED",
+            "ok": false
+          }
+        },
+        {
+          "scenario": "connect-retry-determinism",
+          "status": "pass",
+          "detail": "Repeated connect attempts produced deterministic, actionable outcomes",
+          "evidence": {
+            "attempt_1": "error:502:DISCOVERY_FAILED",
+            "attempt_2": "error:502:DISCOVERY_FAILED"
+          }
+        },
+        {
+          "scenario": "disconnect-flow",
+          "status": "pass",
+          "detail": "Disconnect endpoint completed and returned disconnected next_action"
+        },
+        {
+          "scenario": "tool-execution-negative-path",
+          "status": "pass",
+          "detail": "Tool execution returned an actionable error code for negative-path input",
+          "evidence": {
+            "code": "NOT_CONNECTED",
+            "status": 409
+          }
+        },
+        {
+          "scenario": "resource-read-negative-path",
+          "status": "pass",
+          "detail": "Resource read returned an actionable error code for negative-path input",
+          "evidence": {
+            "code": "NOT_CONNECTED",
+            "status": 409
+          }
+        },
+        {
+          "scenario": "history-drilldown-data-available",
+          "status": "pass",
+          "detail": "History includes latest tool/resource entries for drilldown",
+          "evidence": {
+            "tool_entry": true,
+            "resource_entry": true,
+            "total_items": 2
+          }
+        }
+      ],
+      "summary": {
+        "pass": 11,
+        "fail": 0,
+        "warn": 0,
+        "skip": 0
+      }
+    },
+    {
+      "provider": "posthog",
+      "scenarios": [
+        {
+          "scenario": "provider-present-in-server-list",
+          "status": "pass",
+          "detail": "Provider is available for matrix execution",
+          "evidence": {
+            "provider": "posthog",
+            "mcp_url": "https://mcp.posthog.com/mcp"
+          }
+        },
+        {
+          "scenario": "settings-guardrail-name-read-only",
+          "status": "pass",
+          "detail": "Pre-configured name edit blocked with FORBIDDEN guardrail"
+        },
+        {
+          "scenario": "settings-transport-update",
+          "status": "pass",
+          "detail": "Transport persisted via PATCH /api/servers/[id]",
+          "evidence": {
+            "from": "auto",
+            "to": "streamable_http"
+          }
+        },
+        {
+          "scenario": "settings-enabled-toggle",
+          "status": "pass",
+          "detail": "Enabled state can be toggled and restored"
+        },
+        {
+          "scenario": "history-list-fetch",
+          "status": "pass",
+          "detail": "History endpoint returned a valid list response",
+          "evidence": {
+            "item_count": 0
+          }
+        },
+        {
+          "scenario": "capabilities-fetch-and-retryable-state",
+          "status": "pass",
+          "detail": "Capabilities route returned either data or a mapped actionable error",
+          "evidence": {
+            "status": 409,
+            "code": "NOT_CONNECTED",
+            "ok": false
+          }
+        },
+        {
+          "scenario": "connect-retry-determinism",
+          "status": "pass",
+          "detail": "Repeated connect attempts produced deterministic, actionable outcomes",
+          "evidence": {
+            "attempt_1": "error:502:DISCOVERY_FAILED",
+            "attempt_2": "error:502:DISCOVERY_FAILED"
+          }
+        },
+        {
+          "scenario": "disconnect-flow",
+          "status": "pass",
+          "detail": "Disconnect endpoint completed and returned disconnected next_action"
+        },
+        {
+          "scenario": "tool-execution-negative-path",
+          "status": "pass",
+          "detail": "Tool execution returned an actionable error code for negative-path input",
+          "evidence": {
+            "code": "NOT_CONNECTED",
+            "status": 409
+          }
+        },
+        {
+          "scenario": "resource-read-negative-path",
+          "status": "pass",
+          "detail": "Resource read returned an actionable error code for negative-path input",
+          "evidence": {
+            "code": "NOT_CONNECTED",
+            "status": 409
+          }
+        },
+        {
+          "scenario": "history-drilldown-data-available",
+          "status": "pass",
+          "detail": "History includes latest tool/resource entries for drilldown",
+          "evidence": {
+            "tool_entry": true,
+            "resource_entry": true,
+            "total_items": 2
+          }
+        }
+      ],
+      "summary": {
+        "pass": 11,
+        "fail": 0,
+        "warn": 0,
+        "skip": 0
+      }
+    }
+  ],
+  "provider_summary": {
+    "pass": 33,
+    "fail": 0,
+    "warn": 0,
+    "skip": 0
+  },
+  "edge_case_results": [
+    {
+      "scenario": "cross-server-in-flight-capabilities",
+      "status": "pass",
+      "detail": "Concurrent capabilities requests returned actionable outcomes across providers",
+      "evidence": {
+        "responses": [
+          {
+            "providerId": "notion",
+            "status": 401,
+            "ok": false,
+            "code": "RECONNECT_REQUIRED"
+          },
+          {
+            "providerId": "sentry",
+            "status": 409,
+            "ok": false,
+            "code": "NOT_CONNECTED"
+          },
+          {
+            "providerId": "posthog",
+            "status": 409,
+            "ok": false,
+            "code": "NOT_CONNECTED"
+          }
+        ]
+      }
+    },
+    {
+      "scenario": "token-expiry-refresh-reconnect-required",
+      "status": "pass",
+      "detail": "Forced refresh transitioned to reconnect_required for expired credentials"
+    },
+    {
+      "scenario": "token-expiry-capabilities-reconnect-state",
+      "status": "pass",
+      "detail": "Capabilities path reflected reconnect-required token lifecycle state",
+      "evidence": {
+        "status": 401,
+        "code": "RECONNECT_REQUIRED",
+        "stale_reason": null
+      }
+    },
+    {
+      "scenario": "accessibility-smoke-keyboard-and-labels",
+      "status": "pass",
+      "detail": "Keyboard escape handling, filter aria-labels, and settings form labels are present in UI contracts"
+    },
+    {
+      "scenario": "responsive-smoke-desktop-mobile-shell",
+      "status": "pass",
+      "detail": "Desktop sidebar and mobile sheet toggles are both present in the shell layout"
+    }
+  ],
+  "edge_case_summary": {
+    "pass": 5,
+    "fail": 0,
+    "warn": 0,
+    "skip": 0
+  }
+}
