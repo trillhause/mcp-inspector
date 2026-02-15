@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Search } from "lucide-react";
+import { MousePointerClick } from "lucide-react";
 
 import { AddServerDialog } from "@/components/add-server-dialog";
 import { Header } from "@/components/header";
@@ -485,7 +485,7 @@ export default function Home() {
           ) : (
             <div className="flex h-full items-center justify-center p-6">
               <div className="flex max-w-md flex-col items-center gap-3 text-center text-muted-foreground">
-                <Search className="size-8" aria-hidden="true" />
+                <MousePointerClick className="size-8" aria-hidden="true" />
                 <p className="hidden text-sm sm:text-base md:block">
                   Select a server from the sidebar to view its details
                 </p>

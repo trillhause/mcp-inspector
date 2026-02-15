@@ -7,6 +7,8 @@ import {
 } from "@/lib/mcp/execution-history";
 import {
   MCP_INTERACTION_ERROR_CATEGORY_BY_CODE,
+  type McpExecutionHistoryActionType,
+  type McpInteractionStatus,
   type McpInteractionErrorCode,
 } from "@/lib/mcp/interaction-contract";
 import { bootstrapServerStore, PayloadValidationError } from "@/lib/servers";
@@ -61,6 +63,34 @@ function parseLimit(rawLimit: string | null) {
   return Math.min(MAX_LIMIT, Math.trunc(parsedLimit));
 }
 
+function parseActionTypeFilter(rawType: string | null): McpExecutionHistoryActionType | undefined {
+  if (!rawType) {
+    return undefined;
+  }
+
+  if (rawType === "tool") {
+    return "tool_execute";
+  }
+
+  if (rawType === "resource") {
+    return "resource_read";
+  }
+
+  throw new PayloadValidationError(["type must be one of: tool, resource"]);
+}
+
+function parseStatusFilter(rawStatus: string | null): McpInteractionStatus | undefined {
+  if (!rawStatus) {
+    return undefined;
+  }
+
+  if (rawStatus === "success" || rawStatus === "error") {
+    return rawStatus;
+  }
+
+  throw new PayloadValidationError(["status must be one of: success, error"]);
+}
+
 function serverExists(serverId: string) {
   const row = dbQueryFirst<{ id: string }>("SELECT id FROM mcp_servers WHERE id = ? LIMIT 1", [
     serverId,
@@ -97,10 +127,14 @@ export async function GET(
   try {
     const limit = parseLimit(searchParams.get("limit"));
     const cursor = searchParams.get("cursor");
+    const actionType = parseActionTypeFilter(searchParams.get("type"));
+    const status = parseStatusFilter(searchParams.get("status"));
     const history = listExecutionHistoryForServer({
       mcpServerId: serverId,
       limit,
       cursor,
+      actionType,
+      status,
     });
 
     return NextResponse.json({

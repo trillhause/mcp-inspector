@@ -66,6 +66,8 @@ export type ListExecutionHistoryInput = {
   mcpServerId: string;
   limit: number;
   cursor?: string | null;
+  actionType?: McpExecutionHistoryActionType;
+  status?: McpInteractionStatus;
 };
 
 export class ExecutionHistoryCursorError extends Error {
@@ -428,6 +430,14 @@ export function listExecutionHistoryForServer(
     params.cursor_created_at = cursor.created_at;
     params.cursor_id = cursor.id;
   }
+  const actionTypeClause = input.actionType ? "AND action_type = @action_type" : "";
+  if (input.actionType) {
+    params.action_type = input.actionType;
+  }
+  const statusClause = input.status ? "AND status = @status" : "";
+  if (input.status) {
+    params.status = input.status;
+  }
 
   const rows = dbQueryAll<HistoryRow>(
     `SELECT
@@ -449,6 +459,8 @@ export function listExecutionHistoryForServer(
       created_at
     FROM mcp_execution_history
     WHERE mcp_server_id = @mcp_server_id
+      ${actionTypeClause}
+      ${statusClause}
       ${cursorClause}
     ORDER BY created_at DESC, id DESC
     LIMIT @query_limit`,
