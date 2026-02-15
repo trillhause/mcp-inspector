@@ -1,7 +1,7 @@
 # Task 6: Accessibility, Keyboard UX, and Regression QA
 
 **Sprint:** 5 - UI Navigation Refresh (Sidebar + Main Panel)
-**Status:** not_started
+**Status:** done
 **Depends on:** Task 5
 
 ## Description

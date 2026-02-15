@@ -74,6 +74,7 @@ export function ServerGrid({
           <Input
             type="search"
             placeholder="Filter servers..."
+            aria-label="Filter servers"
             value={filterQuery}
             onChange={(e) => setFilterQuery(e.target.value)}
             className="h-8 pl-8 text-sm"
@@ -153,7 +154,7 @@ function ServerSection({
         {title}
       </h2>
       {servers.length > 0 ? (
-        <div className="flex flex-col gap-0.5">
+        <ul role="listbox" aria-label={title} className="flex flex-col gap-0.5">
           {servers.map((server) => (
             <ServerRow
               key={server.id}
@@ -168,7 +169,7 @@ function ServerSection({
               isDeleting={deletingServerIds?.has(server.id) ?? false}
             />
           ))}
-        </div>
+        </ul>
       ) : emptyMessage ? (
         <p className="px-2 py-3 text-xs text-muted-foreground">{emptyMessage}</p>
       ) : null}

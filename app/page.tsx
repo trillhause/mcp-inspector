@@ -96,12 +96,14 @@ export default function Home() {
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key !== "Escape") return;
+      // Don't clear selection when a dialog or sheet overlay is open
+      if (isServerSheetOpen || isAddServerDialogOpen) return;
       setSelectedServerId(null);
     };
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, []);
+  }, [isServerSheetOpen, isAddServerDialogOpen]);
 
   useEffect(() => {
     const abortController = new AbortController();
@@ -363,9 +365,10 @@ export default function Home() {
       <Header
         onAddServer={() => setIsAddServerDialogOpen(true)}
         onOpenServerSheet={() => setIsServerSheetOpen(true)}
+        isServerSheetOpen={isServerSheetOpen}
       />
       <div className="flex flex-1 overflow-hidden">
-        <aside className="hidden md:flex md:w-72 lg:w-80 flex-col border-r">
+        <aside className="hidden md:flex md:w-72 lg:w-80 flex-col border-r" aria-label="Server navigation">
           <div className="flex-1 overflow-y-auto p-4 space-y-4">
             {oauthNotice ? (
               <div

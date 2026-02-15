@@ -2,7 +2,7 @@
 
 **Goal:** Replace the bottom inspector interaction model with a persistent desktop sidebar + main details panel layout, and add a mobile slide-over server list while preserving existing connect/disconnect and capabilities behaviors.
 
-**Status:** not_started
+**Status:** done
 
 ---
 
@@ -39,7 +39,7 @@ Task 5 → Task 6 (Accessibility + Regression QA)
 | 3 | Sidebar Server Navigation + Actions | [task-3](task-3-sidebar-server-navigation-and-actions.md) | done | Task 2 |
 | 4 | Main Details Panel (Inspector Migration) | [task-4](task-4-main-details-panel-inspector-migration.md) | done | Task 2 |
 | 5 | Mobile Slide-Over Server Picker | [task-5](task-5-mobile-slide-over-server-picker.md) | done | Task 3, Task 4 |
-| 6 | Accessibility, Keyboard UX, and Regression QA | [task-6](task-6-accessibility-keyboard-and-regression-qa.md) | not_started | Task 5 |
+| 6 | Accessibility, Keyboard UX, and Regression QA | [task-6](task-6-accessibility-keyboard-and-regression-qa.md) | done | Task 5 |
 
 ## Definition of Done
 

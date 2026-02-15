@@ -6,9 +6,10 @@ type HeaderProps = {
   onAddServer: () => void;
   isAddServerDisabled?: boolean;
   onOpenServerSheet?: () => void;
+  isServerSheetOpen?: boolean;
 };
 
-export function Header({ onAddServer, isAddServerDisabled = false, onOpenServerSheet }: HeaderProps) {
+export function Header({ onAddServer, isAddServerDisabled = false, onOpenServerSheet, isServerSheetOpen = false }: HeaderProps) {
   return (
     <header className="border-b">
       <div className="mx-auto flex h-16 w-full max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
@@ -25,6 +26,7 @@ export function Header({ onAddServer, isAddServerDisabled = false, onOpenServerS
               className="md:hidden"
               onClick={onOpenServerSheet}
               aria-label="Open server list"
+              aria-expanded={isServerSheetOpen}
             >
               <PanelLeft className="size-4" />
             </Button>
