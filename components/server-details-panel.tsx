@@ -447,7 +447,7 @@ function SelectedServerContent({
                   {refreshNotice}
                 </div>
               ) : null}
-              <TabsContent value="tools" className="mt-0 min-h-0 flex-1 overflow-y-auto pr-1">
+              <TabsContent value="tools" className="mt-0 min-h-0 min-w-0 flex-1 overflow-y-auto pr-1">
                 {capabilities && capabilities.tools.length > 0 ? (
                   <ToolExecutionWorkspace
                     serverId={server.id}
