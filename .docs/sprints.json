@@ -53,7 +53,7 @@
       "status": "not_started",
       "goal": "Build dynamic forms from tool schemas, execute tools against MCP servers, read resources, and display results with JSON syntax highlighting.",
       "testable": "Click a tool (e.g., notion_search) → form appears with input fields matching the schema → fill in params → click Execute → see JSON result with syntax highlighting → click a resource → see its contents rendered → execution appears in history.",
-      "tasks": null,
+      "tasks": 6,
       "taskDir": ".docs/sprint-6/"
     },
     {
