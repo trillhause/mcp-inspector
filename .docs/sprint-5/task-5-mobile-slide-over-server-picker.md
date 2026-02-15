@@ -1,7 +1,7 @@
 # Task 5: Mobile Slide-Over Server Picker
 
 **Sprint:** 5 - UI Navigation Refresh (Sidebar + Main Panel)
-**Status:** not_started
+**Status:** done
 **Depends on:** Task 3, Task 4
 
 ## Description

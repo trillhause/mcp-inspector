@@ -8,7 +8,7 @@ import { Header } from "@/components/header";
 import { ServerDetailsPanel } from "@/components/server-details-panel";
 import { ServerGrid } from "@/components/server-grid";
 import { Button } from "@/components/ui/button";
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import type { McpServer } from "@/lib/types";
 
 const OAUTH_QUERY_PARAMS = [
@@ -438,9 +438,21 @@ export default function Home() {
             <div className="flex h-full items-center justify-center p-6">
               <div className="flex max-w-md flex-col items-center gap-3 text-center text-muted-foreground">
                 <Search className="size-8" aria-hidden="true" />
-                <p className="text-sm sm:text-base">
+                <p className="hidden text-sm sm:text-base md:block">
                   Select a server from the sidebar to view its details
                 </p>
+                <div className="flex flex-col items-center gap-3 md:hidden">
+                  <p className="text-sm">
+                    Browse available servers to view details
+                  </p>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setIsServerSheetOpen(true)}
+                  >
+                    Open Servers
+                  </Button>
+                </div>
               </div>
             </div>
           )}
@@ -455,8 +467,52 @@ export default function Home() {
         <SheetContent side="left" className="w-80 p-0">
           <SheetHeader className="border-b px-4 py-3">
             <SheetTitle>Servers</SheetTitle>
+            <SheetDescription className="sr-only">Browse and select MCP servers</SheetDescription>
           </SheetHeader>
           <div className="flex-1 overflow-y-auto p-4 space-y-4">
+            {oauthNotice ? (
+              <div
+                className={`flex flex-col gap-2 rounded-lg border p-3 ${
+                  oauthNotice.type === "success"
+                    ? "border-emerald-400/40 bg-emerald-500/5"
+                    : "border-destructive/40 bg-destructive/5"
+                }`}
+                role={oauthNotice.type === "error" ? "alert" : "status"}
+              >
+                <p
+                  className={`text-sm ${
+                    oauthNotice.type === "success" ? "text-emerald-700" : "text-destructive"
+                  }`}
+                >
+                  {oauthNotice.message}
+                </p>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setOauthNotice(null)}
+                >
+                  Dismiss
+                </Button>
+              </div>
+            ) : null}
+            {serversError ? (
+              <div
+                className="flex flex-col gap-2 rounded-lg border border-destructive/40 bg-destructive/5 p-3"
+                role="alert"
+              >
+                <p className="text-sm text-destructive">Error: {serversError}</p>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => void loadServers()}
+                  disabled={isLoadingServers}
+                >
+                  Retry
+                </Button>
+              </div>
+            ) : null}
             <ServerGrid
               servers={servers}
               isLoading={isLoadingServers}
