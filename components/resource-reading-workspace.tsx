@@ -11,6 +11,12 @@ import {
 } from "@/components/json-payload-viewer";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  buildMcpSurfaceErrorDiagnostics,
+  normalizeMcpSurfaceError,
+  resolveMcpSurfaceErrorAction,
+  type McpSurfaceError,
+} from "@/lib/mcp/interaction-error-ui";
 import type {
   InteractionRunState,
   ReadResourceSuccessResponse,
@@ -21,12 +27,11 @@ type ResourceReadingWorkspaceProps = {
   serverId: string;
   serverName: string;
   resources: ResourceCapability[];
+  onReconnect?: () => void;
+  onRefreshCapabilities?: () => void;
 };
 
-type ResourceReadError = {
-  code: string;
-  message: string;
-  details: string[];
+type ResourceReadError = McpSurfaceError & {
   source: "client" | "server" | "network";
   failedAt: string;
   targetUri: string;
@@ -35,6 +40,7 @@ type ResourceReadError = {
 type ReadResourceApiErrorPayload = {
   error?: {
     code?: string;
+    category?: string;
     message?: string;
     details?: unknown;
   };
@@ -51,16 +57,6 @@ function normalizeOptionalString(value: unknown) {
 
   const normalized = value.trim();
   return normalized.length > 0 ? normalized : null;
-}
-
-function normalizeErrorDetails(details: unknown) {
-  if (!Array.isArray(details)) {
-    return [];
-  }
-
-  return details
-    .map((detail) => normalizeOptionalString(detail))
-    .filter((detail): detail is string => Boolean(detail));
 }
 
 function normalizeReadResourceSuccess(payload: unknown): ReadResourceSuccessResponse | null {
@@ -158,18 +154,14 @@ function buildErrorDiagnostics(
   error: ResourceReadError,
   serverName: string,
 ) {
-  return JSON.stringify(
+  return buildMcpSurfaceErrorDiagnostics(
+    error,
     {
-      code: error.code,
       source: error.source,
-      message: error.message,
       server: serverName,
       target_resource_uri: error.targetUri,
       failed_at: error.failedAt,
-      details: error.details,
     },
-    null,
-    2,
   );
 }
 
@@ -234,6 +226,8 @@ export function ResourceReadingWorkspace({
   serverId,
   serverName,
   resources,
+  onReconnect,
+  onRefreshCapabilities,
 }: ResourceReadingWorkspaceProps) {
   const [selectedResourceUri, setSelectedResourceUri] = useState(resources[0]?.uri ?? "");
   const [runState, setRunState] = useState<InteractionRunState>("idle");
@@ -282,13 +276,12 @@ export function ResourceReadingWorkspace({
         const payload = (await response.json().catch(() => null)) as unknown;
         if (!response.ok) {
           const normalizedPayload = (isRecord(payload) ? payload : {}) as ReadResourceApiErrorPayload;
-          const message =
-            normalizeOptionalString(normalizedPayload.error?.message) ??
-            `Resource read failed (HTTP ${response.status})`;
+          const normalizedError = normalizeMcpSurfaceError(normalizedPayload, {
+            fallbackCode: "READ_FAILED",
+            fallbackMessage: `Resource read failed (HTTP ${response.status})`,
+          });
           setReadError({
-            code: normalizeOptionalString(normalizedPayload.error?.code) ?? "READ_FAILED",
-            message,
-            details: normalizeErrorDetails(normalizedPayload.error?.details),
+            ...normalizedError,
             source: "server",
             failedAt: new Date().toISOString(),
             targetUri: uri,
@@ -299,10 +292,20 @@ export function ResourceReadingWorkspace({
 
         const normalized = normalizeReadResourceSuccess(payload);
         if (!normalized) {
+          const normalizedError = normalizeMcpSurfaceError(
+            {
+              error: {
+                code: "INTERNAL_ERROR",
+                message: "Resource read succeeded but payload was invalid.",
+              },
+            },
+            {
+              fallbackCode: "INTERNAL_ERROR",
+              fallbackMessage: "Resource read succeeded but payload was invalid.",
+            },
+          );
           setReadError({
-            code: "INTERNAL_ERROR",
-            message: "Resource read succeeded but payload was invalid.",
-            details: [],
+            ...normalizedError,
             source: "client",
             failedAt: new Date().toISOString(),
             targetUri: uri,
@@ -314,10 +317,20 @@ export function ResourceReadingWorkspace({
         setReadResult(normalized);
         setRunState("success");
       } catch (error) {
+        const normalizedError = normalizeMcpSurfaceError(
+          {
+            error: {
+              code: "NETWORK_ERROR",
+              message: error instanceof Error ? error.message : "Resource read request failed.",
+            },
+          },
+          {
+            fallbackCode: "NETWORK_ERROR",
+            fallbackMessage: "Resource read request failed.",
+          },
+        );
         setReadError({
-          code: "NETWORK_ERROR",
-          message: error instanceof Error ? error.message : "Resource read request failed.",
-          details: [],
+          ...normalizedError,
           source: "network",
           failedAt: new Date().toISOString(),
           targetUri: uri,
@@ -344,6 +357,18 @@ export function ResourceReadingWorkspace({
 
     void executeRead(lastReadUri);
   }, [executeRead, lastReadUri, runState]);
+
+  const readErrorDiagnostics = readError
+    ? buildErrorDiagnostics(readError, serverName)
+    : null;
+  const readErrorAction = readError
+    ? resolveMcpSurfaceErrorAction(readError, {
+        retry: handleRetry,
+        reconnect: onReconnect,
+        refreshCapabilities: onRefreshCapabilities,
+        checkEndpoint: handleRetry,
+      })
+    : null;
 
   if (resources.length === 0) {
     return (
@@ -456,8 +481,23 @@ export function ResourceReadingWorkspace({
                       ))}
                     </ul>
                   ) : null}
+                  <p className="text-[11px]">
+                    {readErrorAction?.hint ??
+                      "Retry this action and inspect diagnostics if the issue persists."}
+                  </p>
+                  {readErrorAction?.onClick ? (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={readErrorAction.onClick}
+                      disabled={runState === "executing"}
+                    >
+                      {readErrorAction.label}
+                    </Button>
+                  ) : null}
                   <pre className="max-h-48 overflow-auto rounded border bg-background p-2 font-mono text-[11px] whitespace-pre-wrap break-words text-foreground">
-                    {buildErrorDiagnostics(readError, serverName)}
+                    {readErrorDiagnostics}
                   </pre>
                   <Button
                     type="button"
@@ -465,7 +505,7 @@ export function ResourceReadingWorkspace({
                     size="sm"
                     onClick={() =>
                       void copyText(
-                        buildErrorDiagnostics(readError, serverName),
+                        readErrorDiagnostics ?? "",
                         "Copied error diagnostics.",
                       )
                     }

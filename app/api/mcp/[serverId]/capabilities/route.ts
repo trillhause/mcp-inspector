@@ -13,6 +13,10 @@ import {
 } from "@/lib/mcp/capabilities-refresh";
 import { isMcpClientError } from "@/lib/mcp/client";
 import { isMcpCapabilityDiscoveryError } from "@/lib/mcp/discovery";
+import {
+  MCP_INTERACTION_ERROR_CATEGORY_BY_CODE,
+  type McpInteractionErrorCode,
+} from "@/lib/mcp/interaction-contract";
 import { bootstrapServerStore } from "@/lib/servers";
 
 export const runtime = "nodejs";
@@ -34,7 +38,7 @@ type ServerConnectionRow = {
 
 type ApiError = {
   status: number;
-  code: string;
+  code: McpInteractionErrorCode;
   message: string;
   details?: string[];
 };
@@ -44,6 +48,7 @@ function errorResponse(error: ApiError) {
     {
       error: {
         code: error.code,
+        category: MCP_INTERACTION_ERROR_CATEGORY_BY_CODE[error.code],
         message: error.message,
         ...(error.details && error.details.length > 0 ? { details: error.details } : {}),
       },
@@ -90,16 +95,23 @@ function mapInternalError(error: unknown): ApiError {
   if (isMcpCapabilityDiscoveryError(error)) {
     return {
       status: error.httpStatus,
-      code: error.code,
+      code: "EXECUTION_FAILED",
       message: error.message,
-      details: error.details,
+      details: [
+        ...(error.details ?? []),
+        `upstream_error_code=${error.code}`,
+      ],
     };
   }
 
   if (isMcpClientError(error)) {
+    const normalizedCode: McpInteractionErrorCode =
+      error.code === "NOT_CONNECTED" || error.code === "AUTH_REQUIRED" || error.code === "MCP_CONNECT_FAILED"
+        ? error.code
+        : "INTERNAL_ERROR";
     return {
       status: error.httpStatus,
-      code: error.code,
+      code: normalizedCode,
       message: error.message,
       details: error.details,
     };
@@ -218,7 +230,7 @@ export async function GET(
   if (!server) {
     return errorResponse({
       status: 404,
-      code: "NOT_FOUND",
+      code: "NOT_CONNECTED",
       message: "Server not found",
     });
   }
@@ -238,7 +250,7 @@ export async function GET(
   if (!connection) {
     return errorResponse({
       status: 404,
-      code: "NOT_FOUND",
+      code: "NOT_CONNECTED",
       message: "Server not found",
     });
   }
@@ -323,6 +335,7 @@ export async function GET(
         }),
         error: {
           code: mappedError.code,
+          category: MCP_INTERACTION_ERROR_CATEGORY_BY_CODE[mappedError.code],
           message: mappedError.message,
           ...(mappedError.details && mappedError.details.length > 0
             ? { details: mappedError.details }

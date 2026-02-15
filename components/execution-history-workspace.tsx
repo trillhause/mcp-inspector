@@ -10,8 +10,15 @@ import {
 } from "@/components/loading-state-primitives";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  buildMcpSurfaceErrorDiagnostics,
+  normalizeMcpSurfaceError,
+  resolveMcpSurfaceErrorAction,
+  type McpSurfaceError,
+} from "@/lib/mcp/interaction-error-ui";
 import type {
   ListExecutionHistoryResponse,
+  McpInteractionErrorCode,
   McpSurfaceState,
   McpExecutionHistoryItem,
 } from "@/lib/mcp/interaction-contract";
@@ -20,10 +27,16 @@ import { cn } from "@/lib/utils";
 type ExecutionHistoryWorkspaceProps = {
   serverId: string;
   serverName: string;
+  onReconnect?: () => void;
+  onRefreshCapabilities?: () => void;
 };
 
 const DEFAULT_PAGE_LIMIT = 20;
 type HistoryErrorCategory = NonNullable<McpExecutionHistoryItem["error"]>["category"];
+type HistorySurfaceError = McpSurfaceError & {
+  source: "server" | "network" | "client";
+  failedAt: string;
+};
 const HISTORY_SURFACE_LABELS: Record<McpSurfaceState, string> = {
   idle: "Idle",
   loading: "Loading",
@@ -164,6 +177,45 @@ function normalizeHistoryList(payload: unknown): ListExecutionHistoryResponse | 
   };
 }
 
+function isHistorySurfaceError(value: unknown): value is HistorySurfaceError {
+  if (!isRecord(value)) {
+    return false;
+  }
+
+  return (
+    typeof value.message === "string" &&
+    typeof value.code === "string" &&
+    typeof value.category === "string" &&
+    Array.isArray(value.details) &&
+    typeof value.source === "string" &&
+    typeof value.failedAt === "string"
+  );
+}
+
+function normalizeHistorySurfaceError(
+  error: unknown,
+  options: {
+    fallbackCode: McpInteractionErrorCode;
+    fallbackMessage: string;
+    source: HistorySurfaceError["source"];
+  },
+): HistorySurfaceError {
+  if (isHistorySurfaceError(error)) {
+    return error;
+  }
+
+  const normalized = normalizeMcpSurfaceError(error, {
+    fallbackCode: options.fallbackCode,
+    fallbackMessage: options.fallbackMessage,
+  });
+
+  return {
+    ...normalized,
+    source: options.source,
+    failedAt: new Date().toISOString(),
+  };
+}
+
 function formatTimestamp(value: string) {
   const parsed = new Date(value);
   if (Number.isNaN(parsed.getTime())) {
@@ -202,14 +254,16 @@ function buildDiagnostics(item: McpExecutionHistoryItem, serverName: string) {
 export function ExecutionHistoryWorkspace({
   serverId,
   serverName,
+  onReconnect,
+  onRefreshCapabilities,
 }: ExecutionHistoryWorkspaceProps) {
   const [items, setItems] = useState<McpExecutionHistoryItem[]>([]);
   const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [staleMessage, setStaleMessage] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<HistorySurfaceError | null>(null);
+  const [staleError, setStaleError] = useState<HistorySurfaceError | null>(null);
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
   const [clipboardNotice, setClipboardNotice] = useState<string | null>(null);
   const requestSequenceRef = useRef(0);
@@ -237,17 +291,17 @@ export function ExecutionHistoryWorkspace({
     if (isLoading && items.length === 0) {
       return "loading";
     }
-    if (errorMessage && items.length === 0) {
+    if (loadError && items.length === 0) {
       return "error";
     }
-    if (staleMessage && items.length > 0) {
+    if (staleError && items.length > 0) {
       return "stale";
     }
     if (items.length === 0) {
       return "empty";
     }
     return "success";
-  }, [errorMessage, isLoading, items.length, staleMessage]);
+  }, [isLoading, items.length, loadError, staleError]);
 
   useEffect(() => {
     itemsRef.current = items;
@@ -307,22 +361,42 @@ export function ExecutionHistoryWorkspace({
       }
 
       if (!response.ok) {
-        const message =
-          normalizeOptionalString(
-            isRecord(payload) && isRecord(payload.error) ? payload.error.message : null,
-          ) ?? `History request failed (HTTP ${response.status})`;
-        throw new Error(message);
+        const normalizedError = normalizeMcpSurfaceError(payload, {
+          fallbackCode: "INTERNAL_ERROR",
+          fallbackMessage: `History request failed (HTTP ${response.status})`,
+        });
+        throw {
+          ...normalizedError,
+          source: "server" as const,
+          failedAt: new Date().toISOString(),
+        } satisfies HistorySurfaceError;
       }
 
       const normalized = normalizeHistoryList(payload);
       if (!normalized) {
-        throw new Error("History response payload was invalid.");
+        const normalizedError = normalizeMcpSurfaceError(
+          {
+            error: {
+              code: "INTERNAL_ERROR",
+              message: "History response payload was invalid.",
+            },
+          },
+          {
+            fallbackCode: "INTERNAL_ERROR",
+            fallbackMessage: "History response payload was invalid.",
+          },
+        );
+        throw {
+          ...normalizedError,
+          source: "client" as const,
+          failedAt: new Date().toISOString(),
+        } satisfies HistorySurfaceError;
       }
 
       setItems((previousItems) => (append ? [...previousItems, ...normalized.items] : normalized.items));
       setNextCursor(normalized.next_cursor);
-      setErrorMessage(null);
-      setStaleMessage(null);
+      setLoadError(null);
+      setStaleError(null);
     },
     [serverId],
   );
@@ -332,24 +406,28 @@ export function ExecutionHistoryWorkspace({
       if (keepExisting) {
         setIsRefreshing(true);
       } else {
-        setIsLoading(true);
-        setSelectedItemId(null);
-      }
+      setIsLoading(true);
+      setSelectedItemId(null);
+    }
 
-      setErrorMessage(null);
-      setStaleMessage(null);
+      setLoadError(null);
+      setStaleError(null);
       setClipboardNotice(null);
 
       try {
         await fetchHistory({ cursor: null, append: false });
       } catch (error) {
-        const message = error instanceof Error ? error.message : "Failed to load history.";
+        const normalizedError = normalizeHistorySurfaceError(error, {
+          fallbackCode: "INTERNAL_ERROR",
+          fallbackMessage: "Failed to load history.",
+          source: "network",
+        });
         if (keepExisting && itemsRef.current.length > 0) {
-          setStaleMessage(`${message} Showing previous history results.`);
+          setStaleError(normalizedError);
         } else {
           setItems([]);
           setNextCursor(null);
-          setErrorMessage(message);
+          setLoadError(normalizedError);
         }
       } finally {
         if (keepExisting) {
@@ -368,8 +446,8 @@ export function ExecutionHistoryWorkspace({
       setItems(cachedHistory.items);
       setNextCursor(cachedHistory.nextCursor);
       setSelectedItemId(cachedHistory.selectedItemId ?? cachedHistory.items[0]?.id ?? null);
-      setErrorMessage(null);
-      setStaleMessage(null);
+      setLoadError(null);
+      setStaleError(null);
       void loadInitial({ keepExisting: true });
       return;
     }
@@ -386,17 +464,21 @@ export function ExecutionHistoryWorkspace({
     }
 
     setIsRefreshing(true);
-    setStaleMessage(null);
+    setStaleError(null);
     setClipboardNotice(null);
 
     try {
       await fetchHistory({ cursor: null, append: false });
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Failed to refresh history.";
+      const normalizedError = normalizeHistorySurfaceError(error, {
+        fallbackCode: "INTERNAL_ERROR",
+        fallbackMessage: "Failed to refresh history.",
+        source: "network",
+      });
       if (itemsRef.current.length > 0) {
-        setStaleMessage(`${message} Showing previous history results.`);
+        setStaleError(normalizedError);
       } else {
-        setErrorMessage(message);
+        setLoadError(normalizedError);
       }
     } finally {
       setIsRefreshing(false);
@@ -409,22 +491,61 @@ export function ExecutionHistoryWorkspace({
     }
 
     setIsLoadingMore(true);
-    setStaleMessage(null);
+    setStaleError(null);
     setClipboardNotice(null);
 
     try {
       await fetchHistory({ cursor: nextCursor, append: true });
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Failed to load more history.";
+      const normalizedError = normalizeHistorySurfaceError(error, {
+        fallbackCode: "INTERNAL_ERROR",
+        fallbackMessage: "Failed to load more history.",
+        source: "network",
+      });
       if (itemsRef.current.length > 0) {
-        setStaleMessage(`${message} Showing previous history results.`);
+        setStaleError(normalizedError);
       } else {
-        setErrorMessage(message);
+        setLoadError(normalizedError);
       }
     } finally {
       setIsLoadingMore(false);
     }
   }, [fetchHistory, isLoadingMore, nextCursor]);
+
+  const loadErrorDiagnostics = loadError
+    ? buildMcpSurfaceErrorDiagnostics(loadError, {
+        source: loadError.source,
+        failed_at: loadError.failedAt,
+        server: serverName,
+        context: "execution_history",
+      })
+    : null;
+  const staleErrorDiagnostics = staleError
+    ? buildMcpSurfaceErrorDiagnostics(staleError, {
+        source: staleError.source,
+        failed_at: staleError.failedAt,
+        server: serverName,
+        context: "execution_history",
+      })
+    : null;
+  const loadErrorAction = loadError
+    ? resolveMcpSurfaceErrorAction(loadError, {
+        retry: () => void loadInitial(),
+        reconnect: onReconnect,
+        refreshCapabilities: onRefreshCapabilities,
+        fixInput: () => void loadInitial(),
+        checkEndpoint: () => void loadInitial(),
+      })
+    : null;
+  const staleErrorAction = staleError
+    ? resolveMcpSurfaceErrorAction(staleError, {
+        retry: () => void handleRefresh(),
+        reconnect: onReconnect,
+        refreshCapabilities: onRefreshCapabilities,
+        fixInput: () => void handleRefresh(),
+        checkEndpoint: () => void handleRefresh(),
+      })
+    : null;
 
   return (
     <div className="grid min-h-0 gap-3 lg:grid-cols-[minmax(260px,340px)_1fr]">
@@ -458,9 +579,39 @@ export function ExecutionHistoryWorkspace({
           </Button>
         </div>
 
-        {staleMessage ? (
-          <div className="mx-2 mb-2 rounded-md border border-amber-500/30 bg-amber-500/10 p-2 text-[11px] text-amber-900" role="status">
-            {staleMessage}
+        {staleError ? (
+          <div className="mx-2 mb-2 space-y-2 rounded-md border border-amber-500/30 bg-amber-500/10 p-2 text-[11px] text-amber-900" role="status">
+            <p>{staleError.message}</p>
+            <p>{staleErrorAction?.hint ?? "Showing previous history results."}</p>
+            <div className="flex flex-wrap gap-2">
+              {staleErrorAction?.onClick ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-7"
+                  onClick={staleErrorAction.onClick}
+                  disabled={isRefreshing || isLoading}
+                >
+                  {staleErrorAction.label}
+                </Button>
+              ) : null}
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-7"
+                onClick={() =>
+                  void copyText(
+                    staleErrorDiagnostics ?? "",
+                    "Copied history diagnostics.",
+                  )
+                }
+              >
+                <Copy className="size-3.5" />
+                Copy Diagnostics
+              </Button>
+            </div>
           </div>
         ) : null}
 
@@ -531,8 +682,41 @@ export function ExecutionHistoryWorkspace({
           </p>
         )}
 
-        {errorMessage && surfaceState === "error" ? (
-          <p className="mt-2 px-2 text-xs text-destructive">{errorMessage}</p>
+        {loadError && surfaceState === "error" ? (
+          <div className="mt-2 space-y-2 px-2 text-xs text-destructive">
+            <p>{loadError.message}</p>
+            <p className="text-[11px]">
+              {loadErrorAction?.hint ??
+                "Retry the request and inspect diagnostics if the issue persists."}
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {loadErrorAction?.onClick ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={loadErrorAction.onClick}
+                  disabled={isLoading}
+                >
+                  {loadErrorAction.label}
+                </Button>
+              ) : null}
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() =>
+                  void copyText(
+                    loadErrorDiagnostics ?? "",
+                    "Copied history diagnostics.",
+                  )
+                }
+              >
+                <Copy className="size-4" />
+                Copy Diagnostics
+              </Button>
+            </div>
+          </div>
         ) : null}
       </section>
 
