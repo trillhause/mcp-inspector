@@ -100,7 +100,7 @@ export function canonicalizeMcpUrl(input: string): CanonicalMcpUrl {
     canonicalUrl,
     origin: parsedUrl.origin,
     protectedResourceDiscoveryUrl: new URL(
-      "/.well-known/oauth-protected-resource",
+      `/.well-known/oauth-protected-resource${normalizedPathname}`,
       parsedUrl.origin,
     ).toString(),
   };

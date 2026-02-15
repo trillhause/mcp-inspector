@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import { Loader2 } from "lucide-react";
 
@@ -12,11 +12,16 @@ import {
   type ToolCapability,
 } from "@/components/capability-list-rows";
 import { ExecutionHistoryWorkspace } from "@/components/execution-history-workspace";
+import {
+  LoadingSection,
+  SkeletonCard,
+} from "@/components/loading-state-primitives";
 import { ResourceReadingWorkspace } from "@/components/resource-reading-workspace";
 import { ToolExecutionWorkspace } from "@/components/tool-execution-workspace";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import type { McpSurfaceState } from "@/lib/mcp/interaction-contract";
 import type { ConnectionStatus, McpServer } from "@/lib/types";
 
 type ServerDetailsPanelProps = {
@@ -59,6 +64,14 @@ type CapabilitiesApiPayload = {
 
 type CapabilitiesTab = "tools" | "resources" | "prompts" | "history";
 const CAPABILITIES_REQUEST_TIMEOUT_MS = 20_000;
+const SURFACE_STATE_LABELS: Record<McpSurfaceState, string> = {
+  idle: "Idle",
+  loading: "Loading",
+  success: "Ready",
+  empty: "Empty",
+  stale: "Stale",
+  error: "Error",
+};
 
 const STATUS_STYLES: Record<
   ConnectionStatus,
@@ -128,6 +141,7 @@ function SelectedServerContent({
   const [isLoadingCapabilities, setIsLoadingCapabilities] = useState(false);
   const [isRefreshingCapabilities, setIsRefreshingCapabilities] = useState(false);
   const capabilitiesRef = useRef<CapabilitiesApiPayload | null>(null);
+  const capabilitiesCacheRef = useRef<Map<string, CapabilitiesApiPayload>>(new Map());
 
   const status = STATUS_STYLES[server.connection_status];
   const isConnected = server.connection_status === "connected";
@@ -141,6 +155,41 @@ function SelectedServerContent({
       }
     : { tools: 0, resources: 0, prompts: 0 };
   const isHistoryTab = activeTab === "history";
+  const hasCapabilitiesData = capabilities !== null;
+  const hasDiscoveredCapabilities = capabilityCounts.tools + capabilityCounts.resources + capabilityCounts.prompts > 0;
+  const isCapabilitiesStale = capabilities?.stale === true;
+  const capabilitiesSurfaceState = useMemo<McpSurfaceState>(() => {
+    if (!canInspectCapabilities) {
+      return "idle";
+    }
+    if (isLoadingCapabilities && !hasCapabilitiesData) {
+      return "loading";
+    }
+    if (capabilitiesError && !hasCapabilitiesData) {
+      return "error";
+    }
+    if (!hasCapabilitiesData) {
+      return "idle";
+    }
+    if (isCapabilitiesStale) {
+      return "stale";
+    }
+    if (!hasDiscoveredCapabilities) {
+      return "empty";
+    }
+    return "success";
+  }, [
+    canInspectCapabilities,
+    capabilitiesError,
+    hasCapabilitiesData,
+    hasDiscoveredCapabilities,
+    isCapabilitiesStale,
+    isLoadingCapabilities,
+  ]);
+  const staleCapabilitiesMessage =
+    capabilitiesWarning ??
+    capabilities?.stale_message ??
+    "Showing cached capabilities while we refresh in the background.";
 
   const loadCapabilities = useCallback(
     async ({
@@ -209,6 +258,7 @@ function SelectedServerContent({
         }
 
         capabilitiesRef.current = parsedPayload;
+        capabilitiesCacheRef.current.set(server.id, parsedPayload);
         setCapabilities(parsedPayload);
         setCapabilitiesError(null);
 
@@ -253,9 +303,11 @@ function SelectedServerContent({
         const message =
           error instanceof Error ? error.message : "Failed to load capabilities";
 
-        if (refresh && capabilitiesRef.current) {
+        if (capabilitiesRef.current) {
           setCapabilitiesWarning(message);
-          setRefreshNotice(message);
+          if (refresh) {
+            setRefreshNotice(message);
+          }
         } else {
           capabilitiesRef.current = null;
           setCapabilities(null);
@@ -285,16 +337,25 @@ function SelectedServerContent({
 
   useEffect(() => {
     setCapabilitiesError(null);
-    setCapabilitiesWarning(null);
     setRefreshNotice(null);
-    setIsLoadingCapabilities(false);
     setIsRefreshingCapabilities(false);
-    capabilitiesRef.current = null;
-    setCapabilities(null);
+    setIsLoadingCapabilities(false);
 
     if (!canInspectCapabilities) {
+      setCapabilitiesWarning(null);
+      capabilitiesRef.current = null;
+      setCapabilities(null);
       return;
     }
+
+    const cachedCapabilities = capabilitiesCacheRef.current.get(server.id) ?? null;
+    capabilitiesRef.current = cachedCapabilities;
+    setCapabilities(cachedCapabilities);
+    setCapabilitiesWarning(
+      cachedCapabilities?.stale
+        ? cachedCapabilities.stale_message ?? "Showing cached capabilities."
+        : null,
+    );
 
     const abortController = new AbortController();
     void loadCapabilities({ signal: abortController.signal });
@@ -377,49 +438,64 @@ function SelectedServerContent({
             </TabsTrigger>
             <TabsTrigger value="history">History</TabsTrigger>
           </TabsList>
-          {!isHistoryTab ? (
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="h-8"
-              onClick={() => void loadCapabilities({ refresh: true })}
-              disabled={!canInspectCapabilities || isRefreshingCapabilities}
-            >
-              {isRefreshingCapabilities ? (
-                <>
-                  <Loader2 className="size-4 animate-spin" />
-                  Refreshing...
-                </>
-              ) : (
-                "Refresh"
-              )}
-            </Button>
-          ) : null}
+          <div className="flex items-center gap-2">
+            {!isHistoryTab ? (
+              <Badge variant="outline" className="h-8 px-2 text-[11px]">
+                {SURFACE_STATE_LABELS[capabilitiesSurfaceState]}
+              </Badge>
+            ) : null}
+            {!isHistoryTab ? (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-8"
+                onClick={() => void loadCapabilities({ refresh: true })}
+                disabled={!canInspectCapabilities || isRefreshingCapabilities}
+              >
+                {isRefreshingCapabilities ? (
+                  <>
+                    <Loader2 className="size-4 animate-spin" />
+                    Refreshing...
+                  </>
+                ) : (
+                  "Refresh"
+                )}
+              </Button>
+            ) : null}
+          </div>
         </div>
-        <div className="mt-3 min-h-0 flex-1 rounded-lg border bg-muted/20 p-3">
+        <div
+          className="mt-3 min-h-0 flex-1 rounded-lg border bg-muted/20 p-3"
+          data-surface-state={isHistoryTab ? "history" : capabilitiesSurfaceState}
+        >
           {isHistoryTab ? (
             <TabsContent value="history" className="mt-0 min-h-0 flex-1 overflow-y-auto pr-1">
               <ExecutionHistoryWorkspace serverId={server.id} serverName={server.name} />
             </TabsContent>
           ) : !canInspectCapabilities ? (
             <DisconnectedCapabilitiesState />
-          ) : capabilitiesError ? (
+          ) : capabilitiesSurfaceState === "error" ? (
             <CapabilitiesErrorState
-              error={capabilitiesError}
+              error={capabilitiesError ?? "Failed to load capabilities."}
               onRetry={() => void loadCapabilities()}
               isRetrying={isLoadingCapabilities}
             />
-          ) : isLoadingCapabilities && !capabilities ? (
+          ) : capabilitiesSurfaceState === "loading" ? (
             <CapabilitiesLoadingState />
           ) : (
             <div className="flex h-full min-h-0 flex-col gap-3">
-              {capabilitiesWarning ? (
+              {isLoadingCapabilities && hasCapabilitiesData ? (
+                <div className="rounded-md border border-sky-500/30 bg-sky-500/10 p-3 text-xs text-sky-900" role="status">
+                  Updating capabilities in the background...
+                </div>
+              ) : null}
+              {capabilitiesSurfaceState === "stale" ? (
                 <div
                   className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-900"
                   role="status"
                 >
-                  <p>{capabilitiesWarning}</p>
+                  <p>{staleCapabilitiesMessage}</p>
                   <Button
                     type="button"
                     size="sm"
@@ -439,7 +515,15 @@ function SelectedServerContent({
                   </Button>
                 </div>
               ) : null}
-              {refreshNotice && !capabilitiesWarning ? (
+              {capabilitiesWarning && capabilitiesSurfaceState !== "stale" ? (
+                <div
+                  className="rounded-md border border-destructive/30 bg-destructive/5 p-3 text-xs text-destructive"
+                  role="status"
+                >
+                  {capabilitiesWarning}
+                </div>
+              ) : null}
+              {refreshNotice && capabilitiesSurfaceState !== "stale" ? (
                 <div
                   className="rounded-md border border-emerald-500/30 bg-emerald-500/10 p-3 text-xs text-emerald-900"
                   role="status"
@@ -455,7 +539,9 @@ function SelectedServerContent({
                     tools={capabilities.tools}
                   />
                 ) : (
-                  <CapabilityEmptyState message="No tools discovered for this server." />
+                  <CapabilitiesEmptyState
+                    message="No tools discovered yet. Refresh capabilities or reconnect to resync this server."
+                  />
                 )}
               </TabsContent>
               <TabsContent
@@ -469,7 +555,9 @@ function SelectedServerContent({
                     resources={capabilities.resources}
                   />
                 ) : (
-                  <CapabilityEmptyState message="No resources discovered for this server." />
+                  <CapabilitiesEmptyState
+                    message="No resources discovered yet. Refresh capabilities to check for newly published resources."
+                  />
                 )}
               </TabsContent>
               <TabsContent value="prompts" className="mt-0 min-h-0 flex-1 overflow-y-auto pr-1">
@@ -480,7 +568,9 @@ function SelectedServerContent({
                     ))}
                   </ul>
                 ) : (
-                  <CapabilityEmptyState message="No prompts discovered for this server." />
+                  <CapabilitiesEmptyState
+                    message="No prompts discovered yet. Refresh capabilities to sync prompt definitions."
+                  />
                 )}
               </TabsContent>
             </div>
@@ -501,19 +591,17 @@ function DisconnectedCapabilitiesState() {
   );
 }
 
+function CapabilitiesEmptyState({ message }: { message: string }) {
+  return <CapabilityEmptyState message={message} />;
+}
+
 function CapabilitiesLoadingState() {
   return (
-    <div className="space-y-2">
+    <LoadingSection label="Loading capabilities">
       {Array.from({ length: 4 }).map((_, index) => (
-        <div key={index} className="rounded-lg border bg-background p-3">
-          <div className="flex animate-pulse flex-col gap-2">
-            <div className="h-4 w-40 rounded bg-muted" />
-            <div className="h-3 w-full rounded bg-muted" />
-            <div className="h-3 w-3/4 rounded bg-muted" />
-          </div>
-        </div>
+        <SkeletonCard key={index} lineWidths={["h-4 w-40", "w-full", "w-3/4"]} />
       ))}
-    </div>
+    </LoadingSection>
   );
 }
 

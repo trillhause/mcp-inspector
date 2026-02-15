@@ -1,7 +1,7 @@
 # Task 2: Loading States + Skeleton UX
 
 **Sprint:** 7 - Polish & Multi-Server Testing
-**Status:** not_started
+**Status:** done
 **Depends on:** Task 1
 
 ## Description
@@ -37,6 +37,6 @@ Implement consistent loading and transition feedback so users can switch servers
 
 ## Acceptance Criteria
 
-- [ ] Loading and transition patterns are consistent across major views
-- [ ] Skeleton, empty, stale, and success states are visually distinct and stable
-- [ ] Async action buttons show clear in-flight behavior without over-disabling unrelated controls
+- [x] Loading and transition patterns are consistent across major views
+- [x] Skeleton, empty, stale, and success states are visually distinct and stable
+- [x] Async action buttons show clear in-flight behavior without over-disabling unrelated controls

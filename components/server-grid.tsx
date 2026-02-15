@@ -3,6 +3,10 @@
 import { useMemo, useState } from "react";
 import { Search } from "lucide-react";
 
+import {
+  LoadingSection,
+  SkeletonRow,
+} from "@/components/loading-state-primitives";
 import { Input } from "@/components/ui/input";
 import type { McpServer } from "@/lib/types";
 
@@ -179,15 +183,10 @@ function ServerSection({
 
 function SidebarSkeletonList() {
   return (
-    <div className="flex flex-col gap-1">
+    <LoadingSection className="flex flex-col gap-1" label="Loading servers">
       {Array.from({ length: 4 }).map((_, index) => (
-        <div key={index} className="flex animate-pulse items-center gap-2.5 rounded-md px-2 py-1.5">
-          <div className="size-6 shrink-0 rounded bg-muted" />
-          <div className="min-w-0 flex-1 space-y-1">
-            <div className="h-3 w-24 rounded bg-muted" />
-          </div>
-        </div>
+        <SkeletonRow key={index} />
       ))}
-    </div>
+    </LoadingSection>
   );
 }
