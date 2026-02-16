@@ -59,7 +59,7 @@
     {
       "id": 7,
       "name": "Polish & Multi-Server Testing",
-      "status": "not_started",
+      "status": "in_progress",
       "goal": "Loading states, error handling, token expiry warnings, execution history view, server settings, and test with multiple MCP servers (GitHub, Sentry, etc).",
       "testable": "Connect to 2+ servers → switch between them in inspector → see loading skeletons during data fetch → disconnect with expired token shows warning → execution history tab shows past runs → error states show helpful messages.",
       "tasks": 7,
