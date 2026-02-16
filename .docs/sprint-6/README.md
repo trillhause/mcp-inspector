@@ -2,7 +2,7 @@
 
 **Goal:** Build dynamic tool parameter forms from MCP schemas, execute tools against authenticated MCP servers, read resources, and present results with syntax highlighting and execution history.
 
-**Status:** not_started
+**Status:** in_progress
 
 ---
 
@@ -34,7 +34,7 @@ Task 4 + Task 5 → Task 6 (Execution History + Cross-Server Regression QA)
 
 | # | Task | File | Status | Depends On |
 |---|------|------|--------|------------|
-| 1 | Tool/Resource Interaction Contract + API Shapes | [task-1](task-1-tool-resource-interaction-contract-and-api-shapes.md) | not_started | — |
+| 1 | Tool/Resource Interaction Contract + API Shapes | [task-1](task-1-tool-resource-interaction-contract-and-api-shapes.md) | done | — |
 | 2 | Tool Execution Service + API Route | [task-2](task-2-tool-execution-service-and-api-route.md) | not_started | Task 1 |
 | 3 | Resource Reading Service + API Route | [task-3](task-3-resource-reading-service-and-api-route.md) | not_started | Task 1 |
 | 4 | Dynamic Tool Parameter Form + Execute UX | [task-4](task-4-dynamic-tool-parameter-form-and-execute-ux.md) | not_started | Task 2 |
