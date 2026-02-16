@@ -1,7 +1,7 @@
 # Task 5: Add Custom Server Dialog
 
 **Sprint:** 2 - Database, API & Live Data
-**Status:** not_started
+**Status:** done
 **Depends on:** Task 3, Task 4
 
 ## Description
@@ -47,8 +47,8 @@ Implement the "Add Server" dialog and connect it to the servers API so users can
 
 ## Acceptance Criteria
 
-- [ ] "Add Server" button opens a working dialog
-- [ ] Valid custom servers can be created through API from UI
-- [ ] Validation errors are shown clearly for bad input
-- [ ] Custom servers appear and persist after refresh
-- [ ] Custom servers can be deleted from UI
+- [x] "Add Server" button opens a working dialog
+- [x] Valid custom servers can be created through API from UI
+- [x] Validation errors are shown clearly for bad input
+- [x] Custom servers appear and persist after refresh
+- [x] Custom servers can be deleted from UI

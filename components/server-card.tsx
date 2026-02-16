@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import { Loader2, Trash2 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -18,6 +19,8 @@ type ServerCardProps = {
   server: McpServer;
   isSelected?: boolean;
   onSelect?: (serverId: string) => void;
+  onDelete?: (serverId: string) => void;
+  isDeleting?: boolean;
 };
 
 const STATUS_STYLES: Record<
@@ -40,11 +43,22 @@ const STATUS_STYLES: Record<
   },
 };
 
-export function ServerCard({ server, isSelected = false, onSelect }: ServerCardProps) {
+export function ServerCard({
+  server,
+  isSelected = false,
+  onSelect,
+  onDelete,
+  isDeleting = false,
+}: ServerCardProps) {
   const status = STATUS_STYLES[server.connection_status];
 
   const handleSelect = () => {
     onSelect?.(server.id);
+  };
+
+  const handleDelete = (event: React.MouseEvent<HTMLButtonElement>) => {
+    event.stopPropagation();
+    onDelete?.(server.id);
   };
 
   return (
@@ -75,7 +89,27 @@ export function ServerCard({ server, isSelected = false, onSelect }: ServerCardP
             />
             <CardTitle className="truncate text-base">{server.name}</CardTitle>
           </div>
-          <Badge className={status.className}>{status.label}</Badge>
+          <div className="flex items-center gap-1.5">
+            <Badge className={status.className}>{status.label}</Badge>
+            {!server.is_preconfigured ? (
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-sm"
+                className="text-muted-foreground hover:text-destructive"
+                onClick={handleDelete}
+                onKeyDown={(event) => event.stopPropagation()}
+                disabled={isDeleting}
+                aria-label={`Delete ${server.name}`}
+              >
+                {isDeleting ? (
+                  <Loader2 className="size-4 animate-spin" />
+                ) : (
+                  <Trash2 className="size-4" />
+                )}
+              </Button>
+            ) : null}
+          </div>
         </div>
       </CardHeader>
       <CardContent className="flex flex-1 flex-col gap-4 px-5">
