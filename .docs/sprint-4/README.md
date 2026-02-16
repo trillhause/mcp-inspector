@@ -2,7 +2,7 @@
 
 **Goal:** Use `@modelcontextprotocol/sdk` to connect to authenticated MCP servers, discover tools/resources/prompts, cache them, and display them in the inspector panel with tabs.
 
-**Status:** in_progress
+**Status:** done
 
 ---
 
@@ -39,7 +39,7 @@ Task 4 + Task 5 → Task 6 (Auto Rediscovery + Refresh Resilience)
 | 3 | Capabilities Discovery (Tools/Resources/Prompts) | [task-3](task-3-capabilities-discovery-service.md) | done | Task 2 |
 | 4 | Capabilities Cache + `/api/mcp/[serverId]/capabilities` | [task-4](task-4-capabilities-cache-and-api-route.md) | done | Task 3 |
 | 5 | Inspector Tabs UI for Tools/Resources/Prompts | [task-5](task-5-inspector-capabilities-tabs-ui.md) | done | Task 4 |
-| 6 | Auto Rediscovery + Token Refresh Resilience | [task-6](task-6-auto-rediscovery-and-resilience.md) | not_started | Task 4, Task 5 |
+| 6 | Auto Rediscovery + Token Refresh Resilience | [task-6](task-6-auto-rediscovery-and-resilience.md) | done | Task 4, Task 5 |
 
 ## Definition of Done
 

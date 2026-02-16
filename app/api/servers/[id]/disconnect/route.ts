@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { dbExecute, dbQueryFirst } from "@/lib/db";
+import { clearCachedCapabilities } from "@/lib/mcp/capabilities-store";
 import {
   getRevocationEndpointFromMetadata,
   revokeOAuthTokens,
@@ -76,6 +77,7 @@ export async function POST(
   try {
     dbExecute("DELETE FROM oauth_state WHERE mcp_server_id = ?", [id]);
     dbExecute("DELETE FROM oauth_credentials WHERE mcp_server_id = ?", [id]);
+    clearCachedCapabilities(id);
   } catch {
     return errorResponse(500, "INTERNAL_ERROR", "Failed to disconnect server");
   }

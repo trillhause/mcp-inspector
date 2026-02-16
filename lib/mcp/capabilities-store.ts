@@ -112,3 +112,7 @@ export function upsertDiscoveredCapabilities(
     last_discovered_at: lastDiscoveredAt,
   };
 }
+
+export function clearCachedCapabilities(mcpServerId: string) {
+  dbExecute("DELETE FROM mcp_capabilities WHERE mcp_server_id = ?", [mcpServerId]);
+}

@@ -51,10 +51,17 @@ type CapabilitiesApiPayload = {
   prompts_count: number;
   cached: boolean;
   last_discovered_at: string;
+  stale: boolean;
+  stale_reason: string | null;
+  stale_message: string | null;
+  cache_age_ms: number | null;
+  cache_ttl_ms: number | null;
+  background_refresh_scheduled: boolean;
   error?: CapabilitiesApiError;
 };
 
 type CapabilitiesTab = "tools" | "resources" | "prompts";
+const CAPABILITIES_REQUEST_TIMEOUT_MS = 20_000;
 
 const STATUS_STYLES: Record<
   ConnectionStatus,
@@ -162,12 +169,14 @@ function SelectedServerContent({
   const [capabilities, setCapabilities] = useState<CapabilitiesApiPayload | null>(null);
   const [capabilitiesError, setCapabilitiesError] = useState<string | null>(null);
   const [capabilitiesWarning, setCapabilitiesWarning] = useState<string | null>(null);
+  const [refreshNotice, setRefreshNotice] = useState<string | null>(null);
   const [isLoadingCapabilities, setIsLoadingCapabilities] = useState(false);
   const [isRefreshingCapabilities, setIsRefreshingCapabilities] = useState(false);
   const capabilitiesRef = useRef<CapabilitiesApiPayload | null>(null);
 
   const status = STATUS_STYLES[server.connection_status];
   const isConnected = server.connection_status === "connected";
+  const canInspectCapabilities = server.connection_status !== "disconnected";
   const isBusy = isConnecting || isDisconnecting;
   const capabilityCounts = capabilities
     ? {
@@ -184,30 +193,51 @@ function SelectedServerContent({
     }: {
       refresh?: boolean;
       signal?: AbortSignal;
-    } = {}) => {
-      if (!isConnected) {
-        return;
+    } = {}): Promise<{ ok: boolean; stale: boolean; message?: string }> => {
+      if (!canInspectCapabilities) {
+        return { ok: false, stale: false, message: "Server is not connected" };
       }
 
       setCapabilitiesError(null);
-      setCapabilitiesWarning(null);
+      if (refresh) {
+        setRefreshNotice(null);
+      }
 
       if (refresh) {
         setIsRefreshingCapabilities(true);
       } else {
+        setCapabilitiesWarning(null);
+        setRefreshNotice(null);
         setIsLoadingCapabilities(true);
       }
 
       try {
         const params = refresh ? "?refresh=1" : "";
+        const requestAbortController = new AbortController();
+        const timeoutHandle = window.setTimeout(() => {
+          requestAbortController.abort();
+        }, CAPABILITIES_REQUEST_TIMEOUT_MS);
+
+        const onAbort = () => requestAbortController.abort();
+        if (signal) {
+          if (signal.aborted) {
+            requestAbortController.abort();
+          } else {
+            signal.addEventListener("abort", onAbort, { once: true });
+          }
+        }
+
         const response = await fetch(
           `/api/mcp/${encodeURIComponent(server.id)}/capabilities${params}`,
           {
             method: "GET",
             cache: "no-store",
-            signal,
+            signal: requestAbortController.signal,
           },
-        );
+        ).finally(() => {
+          window.clearTimeout(timeoutHandle);
+          signal?.removeEventListener("abort", onAbort);
+        });
 
         const payload = await response.json().catch(() => null);
         if (!response.ok) {
@@ -219,27 +249,49 @@ function SelectedServerContent({
 
         const parsedPayload = normalizeCapabilitiesPayload(payload);
         if (signal?.aborted) {
-          return;
+          return { ok: false, stale: false, message: "Request aborted" };
         }
 
         capabilitiesRef.current = parsedPayload;
         setCapabilities(parsedPayload);
         setCapabilitiesError(null);
 
+        const staleMessage = parsedPayload.stale
+          ? parsedPayload.stale_message ?? "Showing cached capabilities."
+          : null;
         const warningMessage = parsedPayload.error?.message
           ? parsedPayload.error.stale
             ? `Showing cached capabilities. ${parsedPayload.error.message}`
             : parsedPayload.error.message
-          : null;
+          : staleMessage;
+
         setCapabilitiesWarning(warningMessage);
+
+        if (refresh) {
+          if (parsedPayload.stale) {
+            setRefreshNotice(
+              warningMessage ?? "Refresh completed using cached capabilities.",
+            );
+          } else {
+            setRefreshNotice("Capabilities refreshed.");
+          }
+        }
 
         onCapabilitiesLoaded?.(server.id, {
           tools: parsedPayload.tools_count,
           resources: parsedPayload.resources_count,
         });
+        return {
+          ok: true,
+          stale: parsedPayload.stale,
+          message: warningMessage ?? undefined,
+        };
       } catch (error) {
         if (error instanceof DOMException && error.name === "AbortError") {
-          return;
+          const message = signal?.aborted
+            ? "Request aborted"
+            : `Capabilities request timed out after ${CAPABILITIES_REQUEST_TIMEOUT_MS / 1000}s`;
+          return { ok: false, stale: false, message };
         }
 
         const message =
@@ -247,11 +299,17 @@ function SelectedServerContent({
 
         if (refresh && capabilitiesRef.current) {
           setCapabilitiesWarning(message);
+          setRefreshNotice(message);
         } else {
           capabilitiesRef.current = null;
           setCapabilities(null);
           setCapabilitiesError(message);
         }
+        return {
+          ok: false,
+          stale: Boolean(capabilitiesRef.current),
+          message,
+        };
       } finally {
         if (!signal?.aborted) {
           if (refresh) {
@@ -262,7 +320,7 @@ function SelectedServerContent({
         }
       }
     },
-    [isConnected, onCapabilitiesLoaded, server.id],
+    [canInspectCapabilities, onCapabilitiesLoaded, server.id],
   );
 
   useEffect(() => {
@@ -272,12 +330,13 @@ function SelectedServerContent({
   useEffect(() => {
     setCapabilitiesError(null);
     setCapabilitiesWarning(null);
+    setRefreshNotice(null);
     setIsLoadingCapabilities(false);
     setIsRefreshingCapabilities(false);
     capabilitiesRef.current = null;
     setCapabilities(null);
 
-    if (!isConnected) {
+    if (!canInspectCapabilities) {
       return;
     }
 
@@ -285,7 +344,7 @@ function SelectedServerContent({
     void loadCapabilities({ signal: abortController.signal });
 
     return () => abortController.abort();
-  }, [isConnected, loadCapabilities, server.id]);
+  }, [canInspectCapabilities, loadCapabilities, server.id]);
 
   return (
     <div className="flex h-full min-h-0 flex-col py-3">
@@ -356,22 +415,41 @@ function SelectedServerContent({
         onValueChange={(value) => setActiveTab(value as CapabilitiesTab)}
         className="mt-3 flex min-h-0 flex-1 flex-col"
       >
-        <TabsList className="w-full sm:w-auto">
-          <TabsTrigger value="tools" disabled={!isConnected}>
-            Tools
-            <Badge variant="secondary">{capabilityCounts.tools}</Badge>
-          </TabsTrigger>
-          <TabsTrigger value="resources" disabled={!isConnected}>
-            Resources
-            <Badge variant="secondary">{capabilityCounts.resources}</Badge>
-          </TabsTrigger>
-          <TabsTrigger value="prompts" disabled={!isConnected}>
-            Prompts
-            <Badge variant="secondary">{capabilityCounts.prompts}</Badge>
-          </TabsTrigger>
-        </TabsList>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <TabsList className="w-full sm:w-auto">
+            <TabsTrigger value="tools" disabled={!canInspectCapabilities}>
+              Tools
+              <Badge variant="secondary">{capabilityCounts.tools}</Badge>
+            </TabsTrigger>
+            <TabsTrigger value="resources" disabled={!canInspectCapabilities}>
+              Resources
+              <Badge variant="secondary">{capabilityCounts.resources}</Badge>
+            </TabsTrigger>
+            <TabsTrigger value="prompts" disabled={!canInspectCapabilities}>
+              Prompts
+              <Badge variant="secondary">{capabilityCounts.prompts}</Badge>
+            </TabsTrigger>
+          </TabsList>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="h-8"
+            onClick={() => void loadCapabilities({ refresh: true })}
+            disabled={!canInspectCapabilities || isRefreshingCapabilities}
+          >
+            {isRefreshingCapabilities ? (
+              <>
+                <Loader2 className="size-4 animate-spin" />
+                Refreshing...
+              </>
+            ) : (
+              "Refresh"
+            )}
+          </Button>
+        </div>
         <div className="mt-3 min-h-0 flex-1 rounded-lg border bg-muted/20 p-3">
-          {!isConnected ? (
+          {!canInspectCapabilities ? (
             <DisconnectedCapabilitiesState />
           ) : capabilitiesError ? (
             <CapabilitiesErrorState
@@ -406,6 +484,14 @@ function SelectedServerContent({
                       "Retry"
                     )}
                   </Button>
+                </div>
+              ) : null}
+              {refreshNotice && !capabilitiesWarning ? (
+                <div
+                  className="rounded-md border border-emerald-500/30 bg-emerald-500/10 p-3 text-xs text-emerald-900"
+                  role="status"
+                >
+                  {refreshNotice}
                 </div>
               ) : null}
               <TabsContent value="tools" className="mt-0 min-h-0 flex-1 overflow-y-auto pr-1">
@@ -543,6 +629,14 @@ function normalizeCount(value: unknown, fallback: number) {
   return fallback;
 }
 
+function normalizeNullableNumber(value: unknown) {
+  if (typeof value === "number" && Number.isFinite(value) && value >= 0) {
+    return value;
+  }
+
+  return null;
+}
+
 function readErrorMessage(payload: unknown) {
   if (!isRecord(payload) || !isRecord(payload.error)) {
     return null;
@@ -578,6 +672,12 @@ function normalizeCapabilitiesPayload(payload: unknown): CapabilitiesApiPayload 
     prompts_count: normalizeCount(payload.prompts_count, prompts.length),
     cached: payload.cached === true,
     last_discovered_at: normalizeOptionalString(payload.last_discovered_at) ?? "",
+    stale: payload.stale === true,
+    stale_reason: normalizeOptionalString(payload.stale_reason),
+    stale_message: normalizeOptionalString(payload.stale_message),
+    cache_age_ms: normalizeNullableNumber(payload.cache_age_ms),
+    cache_ttl_ms: normalizeNullableNumber(payload.cache_ttl_ms),
+    background_refresh_scheduled: payload.background_refresh_scheduled === true,
   };
 
   if (isRecord(payload.error)) {
