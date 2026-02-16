@@ -1,7 +1,7 @@
 # Task 2: Types, Constants & Hardcoded Server Data
 
 **Sprint:** 1 - Interactive UI Shell
-**Status:** not_started
+**Status:** done
 **Depends on:** Task 1
 
 ## Description
@@ -51,7 +51,7 @@ Create shared TypeScript types and a hardcoded data file for the 6 pre-configure
 
 ## Acceptance Criteria
 
-- [ ] `lib/types.ts` exports `McpServer` and `ConnectionStatus` types
-- [ ] `lib/data/preconfigured-servers.ts` exports array of 6 servers
-- [ ] 6 SVG icon files exist in `public/icons/`
-- [ ] All types compile without errors
+- [x] `lib/types.ts` exports `McpServer` and `ConnectionStatus` types
+- [x] `lib/data/preconfigured-servers.ts` exports array of 6 servers
+- [x] 6 SVG icon files exist in `public/icons/`
+- [x] All types compile without errors
