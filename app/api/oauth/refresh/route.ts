@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { dbQueryFirst } from "@/lib/db";
+import { deriveMcpTokenLifecycleState } from "@/lib/mcp/interaction-contract";
 import { OAuthRefreshError, refreshOAuthCredential } from "@/lib/oauth/refresh";
 import { bootstrapServerStore, PayloadValidationError } from "@/lib/servers";
 
@@ -109,15 +110,21 @@ export async function POST(request: Request) {
       mcpServerId: validatedPayload.mcpServerId,
       force: validatedPayload.force,
     });
+    const tokenLifecycleState = deriveMcpTokenLifecycleState(result.token_expires_at);
+    const connectionStatus =
+      result.status === "reconnect_required" || tokenLifecycleState === "expired"
+        ? "expired"
+        : "connected";
 
     return NextResponse.json({
       mcp_server_id: result.mcp_server_id,
       status: result.status,
-      connection_status: result.status === "connected" ? "connected" : "expired",
+      connection_status: connectionStatus,
       refreshed: result.refreshed,
       refresh_reason: result.refresh_reason,
       connected_at: result.connected_at,
       token_expires_at: result.token_expires_at,
+      token_lifecycle_state: tokenLifecycleState,
       last_refreshed_at: result.last_refreshed_at,
     });
   } catch (error) {

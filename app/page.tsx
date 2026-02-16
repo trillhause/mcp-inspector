@@ -275,6 +275,8 @@ export default function Home() {
                 ...server,
                 connection_status: "disconnected",
                 connected_at: null,
+                token_expires_at: null,
+                token_lifecycle_state: "unknown",
               }
             : server,
         ),
@@ -377,6 +379,31 @@ export default function Home() {
     [],
   );
 
+  const handleServerTokenLifecycleUpdated = useCallback(
+    (
+      serverId: string,
+      next: Pick<
+        McpServer,
+        "connection_status" | "connected_at" | "token_expires_at" | "token_lifecycle_state"
+      >,
+    ) => {
+      setServers((previousServers) =>
+        previousServers.map((server) =>
+          server.id === serverId
+            ? {
+                ...server,
+                connection_status: next.connection_status,
+                connected_at: next.connected_at,
+                token_expires_at: next.token_expires_at,
+                token_lifecycle_state: next.token_lifecycle_state,
+              }
+            : server,
+        ),
+      );
+    },
+    [],
+  );
+
   return (
     <div className="flex h-dvh flex-col bg-background">
       <Header
@@ -451,6 +478,7 @@ export default function Home() {
               onConnect={(serverId) => void handleConnectServer(serverId)}
               onDisconnect={(serverId) => void handleDisconnectServer(serverId)}
               onCapabilitiesLoaded={handleCapabilitiesLoaded}
+              onTokenLifecycleUpdated={handleServerTokenLifecycleUpdated}
               isConnecting={connectingServerIds.has(selectedServer.id)}
               isDisconnecting={disconnectingServerIds.has(selectedServer.id)}
             />

@@ -1,7 +1,7 @@
 # Task 4: Token Expiry Warning + Reconnect Hardening
 
 **Sprint:** 7 - Polish & Multi-Server Testing
-**Status:** not_started
+**Status:** done
 **Depends on:** Task 1
 
 ## Description
@@ -38,6 +38,6 @@ Harden auth lifecycle UX by proactively warning users about expiring tokens and 
 
 ## Acceptance Criteria
 
-- [ ] Token-expiry warnings are proactive, visible, and actionable
-- [ ] Expired-token paths reliably transition to reconnect-required UX
-- [ ] Token lifecycle behavior is stable when multiple servers are connected
+- [x] Token-expiry warnings are proactive, visible, and actionable
+- [x] Expired-token paths reliably transition to reconnect-required UX
+- [x] Token lifecycle behavior is stable when multiple servers are connected

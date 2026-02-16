@@ -1,5 +1,6 @@
 import "server-only";
 
+import { deriveMcpTokenLifecycleState } from "@/lib/mcp/interaction-contract";
 import type { McpServer } from "@/lib/types";
 import { initializeDatabase } from "@/lib/db";
 import { seedPreconfiguredServers } from "@/lib/db/seed";
@@ -130,7 +131,10 @@ export function findCanonicalUrlConflict(
   return null;
 }
 
-function getConnectionStatus(row: ServerRow): McpServer["connection_status"] {
+function getConnectionStatus(
+  row: ServerRow,
+  tokenLifecycleState: McpServer["token_lifecycle_state"],
+): McpServer["connection_status"] {
   if (row.auth_mode === "none") {
     return "connected";
   }
@@ -139,17 +143,28 @@ function getConnectionStatus(row: ServerRow): McpServer["connection_status"] {
     return "disconnected";
   }
 
-  if (row.token_expires_at) {
-    const expiresAtMs = Date.parse(row.token_expires_at);
-    if (!Number.isNaN(expiresAtMs) && expiresAtMs <= Date.now()) {
-      return "expired";
-    }
+  if (tokenLifecycleState === "expired") {
+    return "expired";
   }
 
   return "connected";
 }
 
+function getTokenLifecycleState(row: ServerRow): McpServer["token_lifecycle_state"] {
+  if (row.auth_mode === "none") {
+    return "unknown";
+  }
+
+  if (!row.oauth_connected_at) {
+    return "unknown";
+  }
+
+  return deriveMcpTokenLifecycleState(row.token_expires_at);
+}
+
 export function mapServerRowToMcpServer(row: ServerRow): McpServer {
+  const tokenLifecycleState = getTokenLifecycleState(row);
+
   return {
     id: row.id,
     name: row.name,
@@ -160,9 +175,11 @@ export function mapServerRowToMcpServer(row: ServerRow): McpServer {
     is_preconfigured: row.is_preconfigured === 1,
     is_enabled: row.is_enabled === 1,
     auth_mode: row.auth_mode,
-    connection_status: getConnectionStatus(row),
+    connection_status: getConnectionStatus(row, tokenLifecycleState),
     tool_count: null,
     resource_count: null,
     connected_at: row.oauth_connected_at,
+    token_expires_at: row.token_expires_at,
+    token_lifecycle_state: tokenLifecycleState,
   };
 }
