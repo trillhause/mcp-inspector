@@ -53,8 +53,9 @@ export function ServerRow({
       : null;
 
   return (
-    <div
-      role="button"
+    <li
+      role="option"
+      aria-selected={isSelected}
       tabIndex={0}
       onClick={() => onSelect(server.id)}
       onKeyDown={(event) => {
@@ -68,7 +69,6 @@ export function ServerRow({
         "hover:bg-accent/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
         isSelected && "bg-accent ring-1 ring-primary/30",
       )}
-      aria-current={isSelected ? "true" : undefined}
     >
       <Image
         src={server.icon_url}
@@ -153,6 +153,6 @@ export function ServerRow({
           </Button>
         ) : null}
       </div>
-    </div>
+    </li>
   );
 }

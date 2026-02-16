@@ -360,7 +360,7 @@ function SelectedServerContent({
         className="mt-3 flex min-h-0 flex-1 flex-col"
       >
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <TabsList className="w-full sm:w-auto">
+          <TabsList className="w-full sm:w-auto" aria-label="Server capabilities">
             <TabsTrigger value="tools" disabled={!canInspectCapabilities}>
               Tools
               <Badge variant="secondary">{capabilityCounts.tools}</Badge>
@@ -521,7 +521,7 @@ function CapabilitiesErrorState({
   isRetrying: boolean;
 }) {
   return (
-    <div className="flex h-full items-center justify-center rounded-md bg-destructive/5 px-6">
+    <div className="flex h-full items-center justify-center rounded-md bg-destructive/5 px-6" role="alert">
       <div className="max-w-xl space-y-3 text-center">
         <p className="text-sm text-destructive">Failed to load capabilities: {error}</p>
         <Button type="button" variant="outline" onClick={onRetry} disabled={isRetrying}>

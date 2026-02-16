@@ -41,7 +41,7 @@
     {
       "id": 5,
       "name": "UI Navigation Refresh (Sidebar + Main Panel)",
-      "status": "not_started",
+      "status": "done",
       "goal": "Replace the bottom inspector interaction model with a persistent desktop sidebar and a focused main details panel, with a mobile slide-over server list and equivalent capability UX.",
       "testable": "On desktop, server list stays visible in a left sidebar while selected server details render in main panel; on mobile, tapping 'Servers' opens slide-over list; selecting a server updates the details panel and preserves capability tabs, refresh, and error states.",
       "tasks": 6,
