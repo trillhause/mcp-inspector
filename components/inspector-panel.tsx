@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import Image from "next/image";
-import { ChevronDown, ChevronUp, Loader2, Search, X } from "lucide-react";
+import { Loader2, X } from "lucide-react";
 
 import {
   CapabilityEmptyState,
@@ -17,13 +17,10 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { ConnectionStatus, McpServer } from "@/lib/types";
-import { cn } from "@/lib/utils";
 
 type InspectorPanelProps = {
-  isExpanded: boolean;
-  selectedServer: McpServer | null;
+  selectedServer: McpServer;
   onClearSelection: () => void;
-  onExpandedChange: (expanded: boolean) => void;
   onConnect?: (serverId: string) => void;
   onDisconnect?: (serverId: string) => void;
   onCapabilitiesLoaded?: (
@@ -84,10 +81,8 @@ const STATUS_STYLES: Record<
 };
 
 export function InspectorPanel({
-  isExpanded,
   selectedServer,
   onClearSelection,
-  onExpandedChange,
   onConnect,
   onDisconnect,
   onCapabilitiesLoaded,
@@ -95,53 +90,17 @@ export function InspectorPanel({
   isDisconnecting = false,
 }: InspectorPanelProps) {
   return (
-    <aside
-      className={cn(
-        "fixed inset-x-0 bottom-0 z-30 border-t bg-background/95 shadow-[0_-10px_30px_-24px_rgba(0,0,0,0.6)] backdrop-blur supports-[backdrop-filter]:bg-background/80",
-        "transition-[height] duration-300 ease-out",
-        isExpanded ? "h-[40vh] min-h-64 max-h-[520px]" : "h-10",
-      )}
-      aria-label="Inspector panel"
-    >
-      <div className="mx-auto flex h-full w-full max-w-7xl flex-col px-4 sm:px-6 lg:px-8">
-        <button
-          type="button"
-          onClick={() => onExpandedChange(!isExpanded)}
-          className="flex h-10 w-full items-center justify-between text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
-          aria-expanded={isExpanded}
-          aria-controls="inspector-content"
-        >
-          <span>Inspector</span>
-          {isExpanded ? (
-            <ChevronDown className="size-4" aria-hidden="true" />
-          ) : (
-            <ChevronUp className="size-4" aria-hidden="true" />
-          )}
-        </button>
-
-        <div
-          id="inspector-content"
-          className={cn(
-            "min-h-0 flex-1 overflow-hidden border-t transition-opacity duration-200",
-            isExpanded ? "opacity-100" : "pointer-events-none opacity-0",
-          )}
-        >
-          {selectedServer ? (
-            <SelectedServerContent
-              server={selectedServer}
-              onClearSelection={onClearSelection}
-              onConnect={onConnect}
-              onDisconnect={onDisconnect}
-              onCapabilitiesLoaded={onCapabilitiesLoaded}
-              isConnecting={isConnecting}
-              isDisconnecting={isDisconnecting}
-            />
-          ) : (
-            <EmptyInspectorState />
-          )}
-        </div>
-      </div>
-    </aside>
+    <div className="flex h-full flex-col" aria-label="Inspector panel">
+      <SelectedServerContent
+        server={selectedServer}
+        onClearSelection={onClearSelection}
+        onConnect={onConnect}
+        onDisconnect={onDisconnect}
+        onCapabilitiesLoaded={onCapabilitiesLoaded}
+        isConnecting={isConnecting}
+        isDisconnecting={isDisconnecting}
+      />
+    </div>
   );
 }
 
@@ -347,7 +306,7 @@ function SelectedServerContent({
   }, [canInspectCapabilities, loadCapabilities, server.id]);
 
   return (
-    <div className="flex h-full min-h-0 flex-col py-3">
+    <div className="flex h-full min-h-0 flex-col p-4 sm:p-6">
       <div className="flex items-center justify-between gap-3 border-b pb-3">
         <div className="flex min-w-0 items-center gap-3 overflow-hidden">
           <Image
@@ -537,19 +496,6 @@ function SelectedServerContent({
           )}
         </div>
       </Tabs>
-    </div>
-  );
-}
-
-function EmptyInspectorState() {
-  return (
-    <div className="flex h-full items-center justify-center px-6">
-      <div className="flex max-w-md flex-col items-center gap-3 text-center text-muted-foreground">
-        <Search className="size-8" aria-hidden="true" />
-        <p className="text-sm sm:text-base">
-          Select a server to inspect its tools and resources
-        </p>
-      </div>
     </div>
   );
 }
