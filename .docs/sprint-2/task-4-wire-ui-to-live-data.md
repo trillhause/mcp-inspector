@@ -1,7 +1,7 @@
 # Task 4: Wire UI to Live API Data
 
 **Sprint:** 2 - Database, API & Live Data
-**Status:** not_started
+**Status:** done
 **Depends on:** Task 3
 
 ## Description
@@ -37,8 +37,8 @@ Replace hardcoded server rendering with real API-backed data flow so refreshes a
 
 ## Acceptance Criteria
 
-- [ ] Hardcoded list is no longer the runtime source for page rendering
-- [ ] UI fetches server data from `/api/servers`
-- [ ] Loading, success, and error states are implemented
-- [ ] Pre-configured and custom servers are visually separated
-- [ ] Existing inspector interactions remain functional
+- [x] Hardcoded list is no longer the runtime source for page rendering
+- [x] UI fetches server data from `/api/servers`
+- [x] Loading, success, and error states are implemented
+- [x] Pre-configured and custom servers are visually separated
+- [x] Existing inspector interactions remain functional
