@@ -1,7 +1,7 @@
 # Task 1: SQLite Setup & Schema
 
 **Sprint:** 2 - Database, API & Live Data
-**Status:** not_started
+**Status:** done
 **Depends on:** none
 
 ## Description
@@ -38,8 +38,8 @@ Set up the SQLite database foundation and create the base schema used by server 
 
 ## Acceptance Criteria
 
-- [ ] `better-sqlite3` connection is initialized once and reused
-- [ ] `mcp_servers` schema exists with required fields and constraints
-- [ ] `oauth_credentials` and `oauth_state` exist for upcoming PKCE + token storage flow
-- [ ] DB setup runs automatically in local development
-- [ ] No runtime errors when app starts with a fresh workspace
+- [x] `better-sqlite3` connection is initialized once and reused
+- [x] `mcp_servers` schema exists with required fields and constraints
+- [x] `oauth_credentials` and `oauth_state` exist for upcoming PKCE + token storage flow
+- [x] DB setup runs automatically in local development
+- [x] No runtime errors when app starts with a fresh workspace

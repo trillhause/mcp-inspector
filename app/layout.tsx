@@ -1,4 +1,7 @@
 import type { Metadata } from "next";
+
+import { initializeDatabase } from "@/lib/db";
+
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -11,6 +14,10 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  if (process.env.NODE_ENV === "development") {
+    initializeDatabase();
+  }
+
   return (
     <html lang="en">
       <body className="antialiased">{children}</body>
