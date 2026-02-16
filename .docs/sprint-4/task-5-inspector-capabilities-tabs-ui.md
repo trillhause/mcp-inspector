@@ -1,7 +1,7 @@
 # Task 5: Inspector Tabs UI for Tools/Resources/Prompts
 
 **Sprint:** 4 - MCP Capabilities Discovery
-**Status:** not_started
+**Status:** done
 **Depends on:** Task 4
 
 ## Description
@@ -39,7 +39,7 @@ Render discovered capabilities inside the inspector panel with dedicated tabs, c
 
 ## Acceptance Criteria
 
-- [ ] Inspector displays Tools/Resources/Prompts tabs with live capability data
-- [ ] Loading, empty, and error states are implemented and usable
-- [ ] Capability counts are visible and consistent with API response
-- [ ] UI remains responsive when switching quickly between servers
+- [x] Inspector displays Tools/Resources/Prompts tabs with live capability data
+- [x] Loading, empty, and error states are implemented and usable
+- [x] Capability counts are visible and consistent with API response
+- [x] UI remains responsive when switching quickly between servers
