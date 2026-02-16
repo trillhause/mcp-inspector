@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import Image from "next/image";
-import { Loader2, X } from "lucide-react";
+import { Loader2 } from "lucide-react";
 
 import {
   CapabilityEmptyState,
@@ -18,9 +18,8 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { ConnectionStatus, McpServer } from "@/lib/types";
 
-type InspectorPanelProps = {
+type ServerDetailsPanelProps = {
   selectedServer: McpServer;
-  onClearSelection: () => void;
   onConnect?: (serverId: string) => void;
   onDisconnect?: (serverId: string) => void;
   onCapabilitiesLoaded?: (
@@ -80,20 +79,18 @@ const STATUS_STYLES: Record<
   },
 };
 
-export function InspectorPanel({
+export function ServerDetailsPanel({
   selectedServer,
-  onClearSelection,
   onConnect,
   onDisconnect,
   onCapabilitiesLoaded,
   isConnecting = false,
   isDisconnecting = false,
-}: InspectorPanelProps) {
+}: ServerDetailsPanelProps) {
   return (
-    <div className="flex h-full flex-col" aria-label="Inspector panel">
+    <div className="flex h-full flex-col" aria-label="Server details">
       <SelectedServerContent
         server={selectedServer}
-        onClearSelection={onClearSelection}
         onConnect={onConnect}
         onDisconnect={onDisconnect}
         onCapabilitiesLoaded={onCapabilitiesLoaded}
@@ -106,7 +103,6 @@ export function InspectorPanel({
 
 function SelectedServerContent({
   server,
-  onClearSelection,
   onConnect,
   onDisconnect,
   onCapabilitiesLoaded,
@@ -114,7 +110,6 @@ function SelectedServerContent({
   isDisconnecting,
 }: {
   server: McpServer;
-  onClearSelection: () => void;
   onConnect?: (serverId: string) => void;
   onDisconnect?: (serverId: string) => void;
   onCapabilitiesLoaded?: (
@@ -356,16 +351,6 @@ function SelectedServerContent({
               )}
             </Button>
           )}
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            onClick={onClearSelection}
-            aria-label="Clear selected server"
-            className="size-8"
-          >
-            <X className="size-4" />
-          </Button>
         </div>
       </div>
 

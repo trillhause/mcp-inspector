@@ -5,7 +5,7 @@ import { Search } from "lucide-react";
 
 import { AddServerDialog } from "@/components/add-server-dialog";
 import { Header } from "@/components/header";
-import { InspectorPanel } from "@/components/inspector-panel";
+import { ServerDetailsPanel } from "@/components/server-details-panel";
 import { ServerGrid } from "@/components/server-grid";
 import { Button } from "@/components/ui/button";
 import type { McpServer } from "@/lib/types";
@@ -420,9 +420,8 @@ export default function Home() {
         </aside>
         <main className="flex-1 overflow-y-auto">
           {selectedServer ? (
-            <InspectorPanel
+            <ServerDetailsPanel
               selectedServer={selectedServer}
-              onClearSelection={() => setSelectedServerId(null)}
               onConnect={(serverId) => void handleConnectServer(serverId)}
               onDisconnect={(serverId) => void handleDisconnectServer(serverId)}
               onCapabilitiesLoaded={handleCapabilitiesLoaded}
