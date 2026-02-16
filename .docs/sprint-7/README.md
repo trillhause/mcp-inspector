@@ -2,7 +2,7 @@
 
 **Goal:** Add production-ready polish across loading/error/token states, introduce dedicated execution history and server settings views, and validate behavior across multiple OAuth-enabled MCP servers.
 
-**Status:** in_progress
+**Status:** done
 
 ---
 
@@ -17,7 +17,7 @@ Open `localhost:3000` and verify:
 6. Trigger an expired/invalid token path and confirm reconnect-required UX appears with deterministic next steps
 7. Open the execution history view and confirm recent runs render with status, timestamp, target, latency, and request/result summary access
 8. Open server settings and confirm editable fields persist via API and reflect immediately in the UI
-9. Run the cross-server regression matrix and confirm transport/auth differences are handled with stable UX
+9. Run `bun run qa:sprint7` and confirm matrix output is generated under `.docs/sprint-7/` with deterministic provider outcomes
 10. `bun run build` succeeds
 
 ---
@@ -43,7 +43,7 @@ Task 5 + Task 6 → Task 7 (Cross-Server Regression Matrix + Release QA)
 | 4 | Token Expiry Warning + Reconnect Hardening | [task-4](task-4-token-expiry-warning-and-reauth-flow-hardening.md) | done | Task 1 |
 | 5 | Execution History View + Run Detail Drilldown | [task-5](task-5-execution-history-tab-and-run-detail-drilldown.md) | done | Task 2, Task 3, Task 4 |
 | 6 | Server Settings Panel + Update Workflows | [task-6](task-6-server-settings-panel-and-update-workflows.md) | done | Task 1 |
-| 7 | Cross-Server Regression Matrix + Release QA | [task-7](task-7-cross-server-regression-matrix-and-release-qa.md) | not_started | Task 5, Task 6 |
+| 7 | Cross-Server Regression Matrix + Release QA | [task-7](task-7-cross-server-regression-matrix-and-release-qa.md) | done | Task 5, Task 6 |
 
 ## Definition of Done
 

@@ -1,7 +1,7 @@
 # Task 7: Cross-Server Regression Matrix + Release QA
 
 **Sprint:** 7 - Polish & Multi-Server Testing
-**Status:** not_started
+**Status:** done
 **Depends on:** Task 5, Task 6
 
 ## Description
@@ -41,8 +41,16 @@ Run an end-to-end regression matrix across multiple OAuth-enabled MCP servers to
 - Confirm failures include actionable messages (not generic errors) and are documented
 - Confirm build and baseline UX checks pass after all Sprint 7 changes
 
+## Deliverables
+
+- Regression runner: `scripts/qa/sprint7-regression-matrix.ts`
+- Matrix outputs:
+  - `.docs/sprint-7/regression-matrix-results.json`
+  - `.docs/sprint-7/regression-matrix-summary.md`
+- QA report: `.docs/sprint-7/task-7-release-qa-report.md`
+
 ## Acceptance Criteria
 
-- [ ] Regression matrix is completed across multiple OAuth-enabled MCP providers
-- [ ] Universal-client behavior is validated for connect, execute/read, history, and settings workflows
-- [ ] Build and core UX quality gates pass with documented caveats/remediations
+- [x] Regression matrix is completed across multiple OAuth-enabled MCP providers
+- [x] Universal-client behavior is validated for connect, execute/read, history, and settings workflows
+- [x] Build and core UX quality gates pass with documented caveats/remediations
