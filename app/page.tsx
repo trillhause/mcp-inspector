@@ -5,6 +5,7 @@ import { MousePointerClick } from "lucide-react";
 
 import { AddServerDialog } from "@/components/add-server-dialog";
 import { Header } from "@/components/header";
+import { OAuthCredentialsModal } from "@/components/oauth-credentials-modal";
 import { ServerDetailsPanel } from "@/components/server-details-panel";
 import { ServerGrid } from "@/components/server-grid";
 import { Button } from "@/components/ui/button";
@@ -54,6 +55,7 @@ export default function Home() {
   const [deletingServerIds, setDeletingServerIds] = useState<Set<string>>(new Set());
   const [connectingServerIds, setConnectingServerIds] = useState<Set<string>>(new Set());
   const [disconnectingServerIds, setDisconnectingServerIds] = useState<Set<string>>(new Set());
+  const [credentialPromptServerId, setCredentialPromptServerId] = useState<string | null>(null);
   const hasLoadedServersRef = useRef(false);
 
   const loadServers = useCallback(async (signal?: AbortSignal) => {
@@ -106,6 +108,11 @@ export default function Home() {
   const selectedServer = useMemo(
     () => servers.find((server) => server.id === selectedServerId) ?? null,
     [selectedServerId, servers],
+  );
+
+  const credentialPromptServer = useMemo(
+    () => servers.find((server) => server.id === credentialPromptServerId) ?? null,
+    [credentialPromptServerId, servers],
   );
 
   useEffect(() => {
@@ -220,11 +227,15 @@ export default function Home() {
           | {
               next_action?: string;
               authorization_url?: string;
-              error?: { message?: string };
+              error?: { code?: string; message?: string };
             }
           | null;
 
         if (!response.ok) {
+          if (payload?.error?.code === "CLIENT_CONFIGURATION_REQUIRED") {
+            setCredentialPromptServerId(serverId);
+            return;
+          }
           throw new Error(payload?.error?.message ?? "Failed to initiate OAuth connect flow");
         }
 
@@ -423,6 +434,14 @@ export default function Home() {
     );
   }, []);
 
+  const handleCredentialsSaved = useCallback(
+    (serverId: string) => {
+      setCredentialPromptServerId(null);
+      void handleConnectServer(serverId);
+    },
+    [handleConnectServer],
+  );
+
   return (
     <div className="flex h-dvh flex-col bg-background">
       <Header
@@ -531,6 +550,17 @@ export default function Home() {
         onOpenChange={setIsAddServerDialogOpen}
         onServerCreated={handleServerCreated}
       />
+      {credentialPromptServer ? (
+        <OAuthCredentialsModal
+          serverId={credentialPromptServer.id}
+          serverName={credentialPromptServer.name}
+          open={credentialPromptServerId !== null}
+          onOpenChange={(nextOpen) => {
+            if (!nextOpen) setCredentialPromptServerId(null);
+          }}
+          onCredentialsSaved={handleCredentialsSaved}
+        />
+      ) : null}
       <Sheet open={isServerSheetOpen} onOpenChange={setIsServerSheetOpen}>
         <SheetContent side="left" className="w-80 p-0">
           <SheetHeader className="border-b px-4 py-3">

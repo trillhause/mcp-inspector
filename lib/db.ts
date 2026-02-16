@@ -27,6 +27,8 @@ CREATE TABLE IF NOT EXISTS mcp_servers (
   is_preconfigured INTEGER NOT NULL DEFAULT 0,
   is_enabled INTEGER NOT NULL DEFAULT 1,
   auth_mode TEXT NOT NULL DEFAULT 'oauth' CHECK (auth_mode IN ('oauth', 'none')),
+  oauth_client_id TEXT,
+  oauth_client_secret TEXT,
   created_at TEXT NOT NULL DEFAULT (datetime('now')),
   updated_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
@@ -188,6 +190,20 @@ function ensureAuthModeColumn(db: SqliteDatabase) {
   }
 }
 
+function ensureOAuthClientColumns(db: SqliteDatabase) {
+  const tableInfo = db
+    .prepare("PRAGMA table_info(mcp_servers)")
+    .all() as Array<{ name: string }>;
+  const existingColumns = new Set(tableInfo.map((column) => column.name));
+
+  if (!existingColumns.has("oauth_client_id")) {
+    db.exec("ALTER TABLE mcp_servers ADD COLUMN oauth_client_id TEXT");
+  }
+  if (!existingColumns.has("oauth_client_secret")) {
+    db.exec("ALTER TABLE mcp_servers ADD COLUMN oauth_client_secret TEXT");
+  }
+}
+
 function ensureCapabilitiesCacheTable(db: SqliteDatabase) {
   db.exec(`
     CREATE TABLE IF NOT EXISTS mcp_capabilities (
@@ -257,6 +273,7 @@ export function initializeDatabase() {
   ensureCapabilitiesCacheTable(db);
   ensureExecutionHistoryTable(db);
   ensureAuthModeColumn(db);
+  ensureOAuthClientColumns(db);
 }
 
 type QueryRow = Record<string, unknown>;

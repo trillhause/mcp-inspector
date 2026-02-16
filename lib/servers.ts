@@ -36,6 +36,8 @@ export type ServerRow = {
   is_preconfigured: number;
   is_enabled: number;
   auth_mode: "oauth" | "none";
+  oauth_client_id: string | null;
+  oauth_client_secret: string | null;
   token_expires_at: string | null;
   oauth_connected_at: string | null;
 };
@@ -175,6 +177,8 @@ export function mapServerRowToMcpServer(row: ServerRow): McpServer {
     is_preconfigured: row.is_preconfigured === 1,
     is_enabled: row.is_enabled === 1,
     auth_mode: row.auth_mode,
+    oauth_client_id: row.oauth_client_id ?? null,
+    oauth_client_secret: row.oauth_client_secret ?? null,
     connection_status: getConnectionStatus(row, tokenLifecycleState),
     tool_count: null,
     resource_count: null,

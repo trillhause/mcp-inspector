@@ -23,6 +23,8 @@ SELECT
   s.is_preconfigured,
   s.is_enabled,
   s.auth_mode,
+  s.oauth_client_id,
+  s.oauth_client_secret,
   c.token_expires_at AS token_expires_at,
   c.connected_at AS oauth_connected_at
 FROM mcp_servers s
@@ -67,6 +69,8 @@ type UpdateServerPayload = {
   description?: string | null;
   transport?: ServerTransport;
   is_enabled?: boolean;
+  oauth_client_id?: string | null;
+  oauth_client_secret?: string | null;
 };
 
 function validateUpdatePayload(payload: Record<string, unknown>) {
@@ -111,9 +115,29 @@ function validateUpdatePayload(payload: Record<string, unknown>) {
     }
   }
 
+  if ("oauth_client_id" in payload) {
+    if (payload.oauth_client_id === null) {
+      updates.oauth_client_id = null;
+    } else if (typeof payload.oauth_client_id === "string" && payload.oauth_client_id.trim().length > 0) {
+      updates.oauth_client_id = payload.oauth_client_id.trim();
+    } else {
+      issues.push("oauth_client_id must be a non-empty string or null");
+    }
+  }
+
+  if ("oauth_client_secret" in payload) {
+    if (payload.oauth_client_secret === null) {
+      updates.oauth_client_secret = null;
+    } else if (typeof payload.oauth_client_secret === "string") {
+      updates.oauth_client_secret = payload.oauth_client_secret.trim() || null;
+    } else {
+      issues.push("oauth_client_secret must be a string or null");
+    }
+  }
+
   if (Object.keys(updates).length === 0) {
     issues.push(
-      "At least one editable field is required: name, description, transport, is_enabled",
+      "At least one editable field is required: name, description, transport, is_enabled, oauth_client_id, oauth_client_secret",
     );
   }
 
@@ -146,6 +170,16 @@ function buildUpdateStatement(serverId: string, updates: UpdateServerPayload) {
   if (updates.is_enabled !== undefined) {
     clauses.push("is_enabled = @is_enabled");
     params.is_enabled = updates.is_enabled ? 1 : 0;
+  }
+
+  if (updates.oauth_client_id !== undefined) {
+    clauses.push("oauth_client_id = @oauth_client_id");
+    params.oauth_client_id = updates.oauth_client_id;
+  }
+
+  if (updates.oauth_client_secret !== undefined) {
+    clauses.push("oauth_client_secret = @oauth_client_secret");
+    params.oauth_client_secret = updates.oauth_client_secret;
   }
 
   clauses.push("updated_at = datetime('now')");

@@ -11,6 +11,8 @@ export type McpServer = {
   is_preconfigured: boolean;
   is_enabled: boolean;
   auth_mode: "oauth" | "none";
+  oauth_client_id: string | null;
+  oauth_client_secret: string | null;
   connection_status: ConnectionStatus;
   tool_count: number | null;
   resource_count: number | null;
