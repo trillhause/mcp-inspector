@@ -1,7 +1,7 @@
 # Task 1: Install Dependencies & Initialize shadcn/ui
 
 **Sprint:** 1 - Interactive UI Shell
-**Status:** not_started
+**Status:** done
 **Depends on:** none
 
 ## Description
@@ -47,6 +47,6 @@ Install all project dependencies and initialize shadcn/ui. After this task, the 
 
 ## Acceptance Criteria
 
-- [ ] All dependencies in package.json
-- [ ] shadcn/ui initialized, `components/ui/` has button, card, badge, etc.
-- [ ] `bun run build` succeeds with no TypeScript errors
+- [x] All dependencies in package.json
+- [x] shadcn/ui initialized, `components/ui/` has button, card, badge, etc.
+- [x] `bun run build` succeeds with no TypeScript errors
