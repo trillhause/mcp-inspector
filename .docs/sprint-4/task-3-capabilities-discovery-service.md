@@ -1,7 +1,7 @@
 # Task 3: Capabilities Discovery (Tools/Resources/Prompts)
 
 **Sprint:** 4 - MCP Capabilities Discovery
-**Status:** not_started
+**Status:** done
 **Depends on:** Task 2
 
 ## Description
@@ -38,7 +38,7 @@ Implement capability discovery service methods that query MCP servers for tools,
 
 ## Acceptance Criteria
 
-- [ ] Discovery service returns tools/resources and optional prompts in one payload
-- [ ] Output is normalized to a consistent server-agnostic shape
-- [ ] Discovery handles partial capability support without hard failures
+- [x] Discovery service returns tools/resources and optional prompts in one payload
+- [x] Output is normalized to a consistent server-agnostic shape
+- [x] Discovery handles partial capability support without hard failures
 - [ ] Notion capability listing is manually verified

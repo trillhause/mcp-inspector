@@ -36,7 +36,7 @@ Task 4 + Task 5 → Task 6 (Auto Rediscovery + Refresh Resilience)
 |---|------|------|--------|------------|
 | 1 | MCP SDK Client Bootstrap + Authenticated Transport | [task-1](task-1-mcp-sdk-client-bootstrap.md) | done | — |
 | 2 | Token-Aware MCP Session + Transport Fallback | [task-2](task-2-token-aware-session-and-fallback.md) | done | Task 1 |
-| 3 | Capabilities Discovery (Tools/Resources/Prompts) | [task-3](task-3-capabilities-discovery-service.md) | not_started | Task 2 |
+| 3 | Capabilities Discovery (Tools/Resources/Prompts) | [task-3](task-3-capabilities-discovery-service.md) | done | Task 2 |
 | 4 | Capabilities Cache + `/api/mcp/[serverId]/capabilities` | [task-4](task-4-capabilities-cache-and-api-route.md) | not_started | Task 3 |
 | 5 | Inspector Tabs UI for Tools/Resources/Prompts | [task-5](task-5-inspector-capabilities-tabs-ui.md) | not_started | Task 4 |
 | 6 | Auto Rediscovery + Token Refresh Resilience | [task-6](task-6-auto-rediscovery-and-resilience.md) | not_started | Task 4, Task 5 |
