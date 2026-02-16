@@ -1,7 +1,7 @@
 # Task 3: Callback Handling + Token Exchange Storage
 
 **Sprint:** 3 - OAuth Connect Flow (End-to-End)
-**Status:** not_started
+**Status:** done
 **Depends on:** Task 2
 
 ## Description
@@ -43,7 +43,7 @@ Handle OAuth callback safely: validate state, exchange authorization code for to
 
 ## Acceptance Criteria
 
-- [ ] Callback enforces state validation and expiry checks
-- [ ] Token exchange request/response handling is standards-compliant
-- [ ] Credentials are persisted with metadata needed for refresh/discovery reuse
-- [ ] Used/expired OAuth state entries are removed
+- [x] Callback enforces state validation and expiry checks
+- [x] Token exchange request/response handling is standards-compliant
+- [x] Credentials are persisted with metadata needed for refresh/discovery reuse
+- [x] Used/expired OAuth state entries are removed
