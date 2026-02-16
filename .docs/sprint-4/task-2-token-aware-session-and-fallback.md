@@ -1,7 +1,7 @@
 # Task 2: Token-Aware MCP Session + Transport Fallback
 
 **Sprint:** 4 - MCP Capabilities Discovery
-**Status:** not_started
+**Status:** done
 **Depends on:** Task 1
 
 ## Description
@@ -39,7 +39,7 @@ Make MCP session creation resilient by integrating token refresh behavior and au
 
 ## Acceptance Criteria
 
-- [ ] Session bootstrap uses refresh-aware credential flow
-- [ ] Unauthorized responses trigger controlled refresh + retry behavior
-- [ ] `auto` transport mode performs deterministic streamable -> SSE fallback
-- [ ] Refresh/session concurrency does not create duplicate token mutations
+- [x] Session bootstrap uses refresh-aware credential flow
+- [x] Unauthorized responses trigger controlled refresh + retry behavior
+- [x] `auto` transport mode performs deterministic streamable -> SSE fallback
+- [x] Refresh/session concurrency does not create duplicate token mutations

@@ -70,7 +70,9 @@ export async function POST(
         status: "ok",
         configured_transport: session.connection.configured_transport,
         selected_transport: session.connection.selected_transport,
+        attempted_transports: session.connection.attempted_transports,
         transport_candidates: session.connection.transport_candidates,
+        refreshed_before_connect: session.connection.refreshed_before_connect,
         token_expires_at: session.connection.token_expires_at,
         server_version: serverVersion ?? null,
       });
