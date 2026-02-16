@@ -20,7 +20,11 @@ type ServerCardProps = {
   isSelected?: boolean;
   onSelect?: (serverId: string) => void;
   onDelete?: (serverId: string) => void;
+  onConnect?: (serverId: string) => void;
+  onDisconnect?: (serverId: string) => void;
   isDeleting?: boolean;
+  isConnecting?: boolean;
+  isDisconnecting?: boolean;
 };
 
 const STATUS_STYLES: Record<
@@ -48,9 +52,15 @@ export function ServerCard({
   isSelected = false,
   onSelect,
   onDelete,
+  onConnect,
+  onDisconnect,
   isDeleting = false,
+  isConnecting = false,
+  isDisconnecting = false,
 }: ServerCardProps) {
   const status = STATUS_STYLES[server.connection_status];
+  const isConnected = server.connection_status === "connected";
+  const isBusy = isConnecting || isDisconnecting;
 
   const handleSelect = () => {
     onSelect?.(server.id);
@@ -59,6 +69,16 @@ export function ServerCard({
   const handleDelete = (event: React.MouseEvent<HTMLButtonElement>) => {
     event.stopPropagation();
     onDelete?.(server.id);
+  };
+
+  const handleConnect = (event: React.MouseEvent<HTMLButtonElement>) => {
+    event.stopPropagation();
+    onConnect?.(server.id);
+  };
+
+  const handleDisconnect = (event: React.MouseEvent<HTMLButtonElement>) => {
+    event.stopPropagation();
+    onDisconnect?.(server.id);
   };
 
   return (
@@ -125,9 +145,44 @@ export function ServerCard({
         ) : (
           <p className="text-xs text-muted-foreground">No capabilities discovered yet</p>
         )}
-        <Button type="button" className="mt-auto w-full" disabled>
-          Connect
-        </Button>
+        {isConnected ? (
+          <Button
+            type="button"
+            variant="outline"
+            className="mt-auto w-full"
+            onClick={handleDisconnect}
+            onKeyDown={(event) => event.stopPropagation()}
+            disabled={isBusy}
+          >
+            {isDisconnecting ? (
+              <>
+                <Loader2 className="size-4 animate-spin" />
+                Disconnecting...
+              </>
+            ) : (
+              "Disconnect"
+            )}
+          </Button>
+        ) : (
+          <Button
+            type="button"
+            className="mt-auto w-full"
+            onClick={handleConnect}
+            onKeyDown={(event) => event.stopPropagation()}
+            disabled={isBusy}
+          >
+            {isConnecting ? (
+              <>
+                <Loader2 className="size-4 animate-spin" />
+                Redirecting...
+              </>
+            ) : server.connection_status === "expired" ? (
+              "Reconnect"
+            ) : (
+              "Connect"
+            )}
+          </Button>
+        )}
       </CardContent>
     </Card>
   );

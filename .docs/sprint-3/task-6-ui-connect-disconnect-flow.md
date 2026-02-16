@@ -1,7 +1,7 @@
 # Task 6: UI Connect/Disconnect + OAuth Callback UX
 
 **Sprint:** 3 - OAuth Connect Flow (End-to-End)
-**Status:** not_started
+**Status:** done
 **Depends on:** Task 4, Task 5
 
 ## Description
@@ -42,7 +42,22 @@ Wire frontend interactions to OAuth backend routes so users can connect/disconne
 
 ## Acceptance Criteria
 
-- [ ] Connect button initiates real OAuth flow
-- [ ] Callback outcomes are surfaced clearly in UI
-- [ ] Disconnect action clears connection state end-to-end
-- [ ] Notion connect/disconnect can be repeatedly tested without stale state bugs
+- [x] Connect button initiates real OAuth flow
+- [x] Callback outcomes are surfaced clearly in UI
+- [x] Disconnect action clears connection state end-to-end
+- [x] Notion connect/disconnect can be repeatedly tested without stale state bugs
+
+## Manual E2E Checklist Notes (Notion)
+
+1. Consent success path:
+   - Click `Connect` on Notion card (or inspector action)
+   - Confirm button enters loading state and browser redirects to provider consent
+   - Approve consent and confirm redirect back to app with success banner + connected status
+2. Reconnect path for expired state:
+   - Force token to expired/invalid state and confirm card badge shows `Reconnect`
+   - Click `Reconnect` and complete OAuth again
+   - Confirm status returns to `Connected`
+3. Disconnect path:
+   - Click `Disconnect` on connected server
+   - Confirm optimistic UI transition and final server state becomes `Not Connected`
+   - Confirm follow-up reconnect can be initiated without stale callback/query-state issues

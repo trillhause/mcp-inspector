@@ -9,7 +9,11 @@ type ServerGridProps = {
   selectedServerId: string | null;
   onSelectServer: (serverId: string) => void;
   onDeleteServer?: (serverId: string) => void;
+  onConnectServer?: (serverId: string) => void;
+  onDisconnectServer?: (serverId: string) => void;
   deletingServerIds?: ReadonlySet<string>;
+  connectingServerIds?: ReadonlySet<string>;
+  disconnectingServerIds?: ReadonlySet<string>;
 };
 
 export function ServerGrid({
@@ -18,7 +22,11 @@ export function ServerGrid({
   selectedServerId,
   onSelectServer,
   onDeleteServer,
+  onConnectServer,
+  onDisconnectServer,
   deletingServerIds,
+  connectingServerIds,
+  disconnectingServerIds,
 }: ServerGridProps) {
   const preconfiguredServers = servers.filter((server) => server.is_preconfigured);
   const customServers = servers.filter((server) => !server.is_preconfigured);
@@ -42,6 +50,10 @@ export function ServerGrid({
         onSelectServer={onSelectServer}
         onDeleteServer={onDeleteServer}
         deletingServerIds={deletingServerIds}
+        onConnectServer={onConnectServer}
+        onDisconnectServer={onDisconnectServer}
+        connectingServerIds={connectingServerIds}
+        disconnectingServerIds={disconnectingServerIds}
       />
       <ServerSection
         title="Custom Servers"
@@ -51,6 +63,10 @@ export function ServerGrid({
         onSelectServer={onSelectServer}
         onDeleteServer={onDeleteServer}
         deletingServerIds={deletingServerIds}
+        onConnectServer={onConnectServer}
+        onDisconnectServer={onDisconnectServer}
+        connectingServerIds={connectingServerIds}
+        disconnectingServerIds={disconnectingServerIds}
       />
     </section>
   );
@@ -63,7 +79,11 @@ type ServerSectionProps = {
   selectedServerId: string | null;
   onSelectServer: (serverId: string) => void;
   onDeleteServer?: (serverId: string) => void;
+  onConnectServer?: (serverId: string) => void;
+  onDisconnectServer?: (serverId: string) => void;
   deletingServerIds?: ReadonlySet<string>;
+  connectingServerIds?: ReadonlySet<string>;
+  disconnectingServerIds?: ReadonlySet<string>;
 };
 
 function ServerSection({
@@ -73,7 +93,11 @@ function ServerSection({
   selectedServerId,
   onSelectServer,
   onDeleteServer,
+  onConnectServer,
+  onDisconnectServer,
   deletingServerIds,
+  connectingServerIds,
+  disconnectingServerIds,
 }: ServerSectionProps) {
   return (
     <section className="space-y-4">
@@ -87,7 +111,11 @@ function ServerSection({
               isSelected={selectedServerId === server.id}
               onSelect={onSelectServer}
               onDelete={onDeleteServer}
+              onConnect={onConnectServer}
+              onDisconnect={onDisconnectServer}
               isDeleting={deletingServerIds?.has(server.id) ?? false}
+              isConnecting={connectingServerIds?.has(server.id) ?? false}
+              isDisconnecting={disconnectingServerIds?.has(server.id) ?? false}
             />
           ))}
         </div>

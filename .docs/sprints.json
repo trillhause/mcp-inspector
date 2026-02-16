@@ -1,6 +1,6 @@
 {
   "project": "MCP Client Web Application",
-  "totalSprints": 6,
+  "totalSprints": 7,
   "sprints": [
     {
       "id": 1,
@@ -23,7 +23,7 @@
     {
       "id": 3,
       "name": "OAuth Connect Flow (End-to-End)",
-      "status": "in_progress",
+      "status": "done",
       "goal": "Implement the complete OAuth 2.0 flow: discovery (RFC 9470 + 8414), PKCE, dynamic client registration, authorization redirect, callback handling, token exchange, and storage. Click 'Connect' on Notion → go through OAuth → come back connected.",
       "testable": "Click 'Connect' on Notion card → redirected to Notion OAuth consent screen → approve → redirected back to app → Notion card shows 'Connected' badge with green status → click 'Disconnect' → card returns to 'Not Connected'.",
       "tasks": 6,
@@ -55,6 +55,30 @@
       "testable": "Connect to 2+ servers → switch between them in inspector → see loading skeletons during data fetch → disconnect with expired token shows warning → execution history tab shows past runs → error states show helpful messages.",
       "tasks": null,
       "taskDir": ".docs/sprint-6/"
+    },
+    {
+      "id": 7,
+      "name": "expand-mcp-auth",
+      "status": "not_started",
+      "goal": "Harden and expand OAuth discovery/client resolution so additional MCP providers connect reliably even when metadata endpoints or auth requirements vary by provider.",
+      "testable": "GitHub, Figma, Canva, Notion, PostHog, and Sentry each return deterministic connect outcomes: either a redirectable authorization URL or a precise actionable validation error with remediation guidance.",
+      "tasks": null,
+      "taskDir": ".docs/sprint-7/",
+      "planFile": ".docs/sprint-7/expand-mcp-auth.md",
+      "findings": [
+        "Current discovery assumes only root-level OAuth protected-resource metadata and misses path-scoped metadata patterns used by some providers.",
+        "Provider auth behavior differs: some support dynamic client registration while others require pre-configured client credentials and provider-specific setup.",
+        "Error handling returns provider failures but does not always guide users toward next-step remediation (for example, missing OAuth client configuration).",
+        "Provider endpoint assumptions need continuous validation because external OAuth/MCP endpoints and metadata behavior can evolve."
+      ],
+      "plan": [
+        "Expand discovery strategy with ordered fallbacks: root metadata, path-scoped metadata, and standards-based challenge/header-driven hints where available.",
+        "Introduce provider capability profiles that define expected discovery shape, client registration support, and credential requirements without hardcoding brittle one-off logic.",
+        "Add stronger connect diagnostics and user-facing remediation mapping for common failure classes (unsupported metadata, client configuration required, registration failure, and network/discovery failures).",
+        "Define explicit environment/config requirements for providers that need manual OAuth client setup and validate these requirements before initiating connect.",
+        "Create a provider conformance checklist and regression matrix so changes are verified across all preconfigured providers before release.",
+        "Document operational guidance for troubleshooting provider-specific connect issues and keeping provider metadata assumptions current."
+      ]
     }
   ]
 }

@@ -2,7 +2,7 @@
 
 **Goal:** Implement the complete OAuth 2.0 flow: discovery (RFC 9470 + 8414), PKCE, dynamic client registration, authorization redirect, callback handling, token exchange, and storage. Click "Connect" on Notion → go through OAuth → come back connected.
 
-**Status:** in_progress
+**Status:** done
 
 ---
 
@@ -38,7 +38,7 @@ Task 4 (APIs) + Task 5 (Lifecycle) → Task 6 (UI Connect/Disconnect Flow)
 | 3 | Callback Handling + Token Exchange Storage | [task-3](task-3-oauth-callback-token-storage.md) | done | Task 2 |
 | 4 | Server Connect/Disconnect API Routes | [task-4](task-4-connect-disconnect-api.md) | done | Task 3 |
 | 5 | Token Refresh + Credential Lifecycle Hardening | [task-5](task-5-token-refresh-lifecycle.md) | done | Task 3 |
-| 6 | UI Connect/Disconnect + OAuth Callback UX | [task-6](task-6-ui-connect-disconnect-flow.md) | not_started | Task 4, Task 5 |
+| 6 | UI Connect/Disconnect + OAuth Callback UX | [task-6](task-6-ui-connect-disconnect-flow.md) | done | Task 4, Task 5 |
 
 ## Definition of Done
 

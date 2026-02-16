@@ -146,15 +146,16 @@ export function getDb() {
 }
 
 export function initializeDatabase() {
-  if (globalThis.__mcpClientDbInitialized) {
-    return;
+  const db = getDb();
+
+  if (!globalThis.__mcpClientDbInitialized) {
+    db.exec(SCHEMA_SQL);
+    globalThis.__mcpClientDbInitialized = true;
   }
 
-  const db = getDb();
-  db.exec(SCHEMA_SQL);
+  // Always run lightweight column checks so schema updates apply in long-lived dev sessions.
   ensureOAuthStateColumns(db);
   ensureOAuthCredentialColumns(db);
-  globalThis.__mcpClientDbInitialized = true;
 }
 
 type QueryRow = Record<string, unknown>;
