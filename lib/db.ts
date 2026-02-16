@@ -71,6 +71,19 @@ CREATE TABLE IF NOT EXISTS oauth_state (
 
 CREATE INDEX IF NOT EXISTS idx_oauth_state_expires
 ON oauth_state(expires_at);
+
+CREATE TABLE IF NOT EXISTS mcp_capabilities (
+  id TEXT PRIMARY KEY,
+  mcp_server_id TEXT NOT NULL UNIQUE,
+  tools TEXT NOT NULL,
+  resources TEXT NOT NULL,
+  prompts TEXT,
+  last_discovered_at TEXT NOT NULL DEFAULT (datetime('now')),
+  FOREIGN KEY (mcp_server_id) REFERENCES mcp_servers(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_capabilities_server
+ON mcp_capabilities(mcp_server_id);
 `;
 
 function getDbFilePath() {
@@ -137,6 +150,23 @@ function ensureOAuthCredentialColumns(db: SqliteDatabase) {
   }
 }
 
+function ensureCapabilitiesCacheTable(db: SqliteDatabase) {
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS mcp_capabilities (
+      id TEXT PRIMARY KEY,
+      mcp_server_id TEXT NOT NULL UNIQUE,
+      tools TEXT NOT NULL,
+      resources TEXT NOT NULL,
+      prompts TEXT,
+      last_discovered_at TEXT NOT NULL DEFAULT (datetime('now')),
+      FOREIGN KEY (mcp_server_id) REFERENCES mcp_servers(id) ON DELETE CASCADE
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_capabilities_server
+    ON mcp_capabilities(mcp_server_id);
+  `);
+}
+
 export function getDb() {
   if (!globalThis.__mcpClientDb) {
     globalThis.__mcpClientDb = createDatabaseConnection();
@@ -156,6 +186,7 @@ export function initializeDatabase() {
   // Always run lightweight column checks so schema updates apply in long-lived dev sessions.
   ensureOAuthStateColumns(db);
   ensureOAuthCredentialColumns(db);
+  ensureCapabilitiesCacheTable(db);
 }
 
 type QueryRow = Record<string, unknown>;

@@ -1,7 +1,7 @@
 # Task 4: Capabilities Cache + `/api/mcp/[serverId]/capabilities`
 
 **Sprint:** 4 - MCP Capabilities Discovery
-**Status:** not_started
+**Status:** done
 **Depends on:** Task 3
 
 ## Description
@@ -39,7 +39,7 @@ Persist discovered capabilities in SQLite and expose a capabilities API route th
 
 ## Acceptance Criteria
 
-- [ ] `mcp_capabilities` is used as durable cache for discovered capabilities
-- [ ] Capabilities API route returns stable payload for UI consumption
-- [ ] Explicit refresh path is supported and updates cache
-- [ ] Cache/read behavior is deterministic and resilient to transient discovery errors
+- [x] `mcp_capabilities` is used as durable cache for discovered capabilities
+- [x] Capabilities API route returns stable payload for UI consumption
+- [x] Explicit refresh path is supported and updates cache
+- [x] Cache/read behavior is deterministic and resilient to transient discovery errors
