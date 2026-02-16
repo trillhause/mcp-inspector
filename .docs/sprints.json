@@ -35,7 +35,7 @@
       "status": "not_started",
       "goal": "Use @modelcontextprotocol/sdk to connect to authenticated MCP servers, discover tools/resources/prompts, cache them, and display in the inspector panel with tabs.",
       "testable": "Connect to Notion → card updates to show '12 tools' → click card → inspector shows Tools tab with list of tool names and descriptions → click Resources tab → see available resources → reconnect after token refresh works transparently.",
-      "tasks": null,
+      "tasks": 6,
       "taskDir": ".docs/sprint-4/"
     },
     {
