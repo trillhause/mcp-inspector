@@ -1,7 +1,7 @@
 # Task 1: OAuth Discovery (RFC 9470 + RFC 8414)
 
 **Sprint:** 3 - OAuth Connect Flow (End-to-End)
-**Status:** not_started
+**Status:** done
 **Depends on:** none
 
 ## Description
@@ -42,7 +42,7 @@ Implement standards-based OAuth discovery so any compatible MCP server can provi
 
 ## Acceptance Criteria
 
-- [ ] Discovery follows RFC 9470 then RFC 8414 in order
-- [ ] Discovery output includes auth server metadata required by authorize/token routes
-- [ ] Error responses are consistent and actionable
+- [x] Discovery follows RFC 9470 then RFC 8414 in order
+- [x] Discovery output includes auth server metadata required by authorize/token routes
+- [x] Error responses are consistent and actionable
 - [ ] Notion discovery succeeds end-to-end

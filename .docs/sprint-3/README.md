@@ -2,7 +2,7 @@
 
 **Goal:** Implement the complete OAuth 2.0 flow: discovery (RFC 9470 + 8414), PKCE, dynamic client registration, authorization redirect, callback handling, token exchange, and storage. Click "Connect" on Notion → go through OAuth → come back connected.
 
-**Status:** not_started
+**Status:** in_progress
 
 ---
 
@@ -33,7 +33,7 @@ Task 4 (APIs) + Task 5 (Lifecycle) → Task 6 (UI Connect/Disconnect Flow)
 
 | # | Task | File | Status | Depends On |
 |---|------|------|--------|------------|
-| 1 | OAuth Discovery (RFC 9470 + RFC 8414) | [task-1](task-1-oauth-discovery.md) | not_started | — |
+| 1 | OAuth Discovery (RFC 9470 + RFC 8414) | [task-1](task-1-oauth-discovery.md) | done | — |
 | 2 | PKCE + Authorize Route | [task-2](task-2-authorize-route-with-pkce.md) | not_started | Task 1 |
 | 3 | Callback Handling + Token Exchange Storage | [task-3](task-3-oauth-callback-token-storage.md) | not_started | Task 2 |
 | 4 | Server Connect/Disconnect API Routes | [task-4](task-4-connect-disconnect-api.md) | not_started | Task 3 |
