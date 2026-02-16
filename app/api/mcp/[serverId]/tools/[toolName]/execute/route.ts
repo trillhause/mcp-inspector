@@ -3,6 +3,10 @@ import { Buffer } from "node:buffer";
 import { NextResponse } from "next/server";
 
 import {
+  recordExecutionHistory,
+  summarizeToolArguments,
+} from "@/lib/mcp/execution-history";
+import {
   MCP_INTERACTION_ERROR_CATEGORY_BY_CODE,
   MCP_INTERACTION_MAX_BODY_BYTES,
   type ExecuteToolRequestBody,
@@ -57,6 +61,54 @@ function normalizePathSegment(value: string, fieldName: "serverId" | "toolName")
   return trimmed;
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
+function persistToolHistory(input: {
+  serverId: string;
+  toolName: string;
+  status: "success" | "error";
+  latencyMs: number;
+  requestPayload?: unknown;
+  responsePayload?: unknown;
+  responseContentType?: string | null;
+  error?: {
+    code?: string | null;
+    message?: string | null;
+    details?: string[] | null;
+  } | null;
+  createdAt?: string;
+}) {
+  const requestArguments = isRecord(input.requestPayload)
+    ? (input.requestPayload as Record<string, unknown>)
+    : {};
+
+  try {
+    recordExecutionHistory({
+      mcpServerId: input.serverId,
+      actionType: "tool_execute",
+      targetType: "tool",
+      targetValue: input.toolName,
+      status: input.status,
+      latencyMs: input.latencyMs,
+      requestSummary: summarizeToolArguments(requestArguments),
+      requestPayload: requestArguments,
+      responseContentType: input.responseContentType ?? null,
+      responsePayload: input.responsePayload,
+      error: input.error,
+      createdAt: input.createdAt,
+    });
+  } catch (error) {
+    console.warn("[mcp-tool-execution] failed to persist history", {
+      server_id: input.serverId,
+      tool_name: input.toolName,
+      status: input.status,
+      error: error instanceof Error ? error.message : "unknown_error",
+    });
+  }
+}
+
 async function readJsonWithLimit(request: Request): Promise<ExecuteToolRequestPayload> {
   const bodyBuffer = Buffer.from(await request.arrayBuffer());
   if (bodyBuffer.byteLength > MCP_INTERACTION_MAX_BODY_BYTES) {
@@ -103,6 +155,7 @@ export async function POST(
   },
 ) {
   bootstrapServerStore();
+  const requestStartedAt = Date.now();
 
   let serverId: string;
   let toolName: string;
@@ -118,12 +171,26 @@ export async function POST(
     return errorResponse(400, "INVALID_REQUEST", "Request validation failed");
   }
 
+  let requestPayloadForHistory: unknown = null;
   let validatedBody: ExecuteToolRequestBody;
   try {
     const payload = await readJsonWithLimit(request);
+    requestPayloadForHistory = payload.arguments;
     validatedBody = validateExecutePayload(payload);
   } catch (error) {
     if (error instanceof PayloadTooLargeError) {
+      persistToolHistory({
+        serverId,
+        toolName,
+        status: "error",
+        latencyMs: Date.now() - requestStartedAt,
+        requestPayload: requestPayloadForHistory,
+        error: {
+          code: "VALIDATION_ERROR",
+          message: "Tool arguments payload exceeds allowed size",
+          details: [`max_bytes=${error.maxBytes}`, `actual_bytes=${error.actualBytes}`],
+        },
+      });
       return errorResponse(422, "VALIDATION_ERROR", "Tool arguments payload exceeds allowed size", [
         `max_bytes=${error.maxBytes}`,
         `actual_bytes=${error.actualBytes}`,
@@ -131,25 +198,84 @@ export async function POST(
     }
 
     if (error instanceof PayloadValidationError) {
+      persistToolHistory({
+        serverId,
+        toolName,
+        status: "error",
+        latencyMs: Date.now() - requestStartedAt,
+        requestPayload: requestPayloadForHistory,
+        error: {
+          code: "INVALID_REQUEST",
+          message: "Request validation failed",
+          details: error.issues,
+        },
+      });
       return errorResponse(400, "INVALID_REQUEST", "Request validation failed", error.issues);
     }
 
+    persistToolHistory({
+      serverId,
+      toolName,
+      status: "error",
+      latencyMs: Date.now() - requestStartedAt,
+      requestPayload: requestPayloadForHistory,
+      error: {
+        code: "INVALID_REQUEST",
+        message: "Request validation failed",
+      },
+    });
     return errorResponse(400, "INVALID_REQUEST", "Request validation failed");
   }
+
+  const argumentsPayload = validatedBody.arguments ?? {};
 
   try {
     const executed = await executeTool({
       mcpServerId: serverId,
       toolName,
-      arguments: validatedBody.arguments ?? {},
+      arguments: argumentsPayload,
+    });
+
+    persistToolHistory({
+      serverId,
+      toolName,
+      status: "success",
+      latencyMs: executed.latency_ms,
+      requestPayload: argumentsPayload,
+      responsePayload: executed.result,
+      responseContentType: executed.content_type,
+      createdAt: executed.executed_at,
     });
 
     return NextResponse.json(executed);
   } catch (error) {
     if (isMcpToolExecutionError(error)) {
+      persistToolHistory({
+        serverId,
+        toolName,
+        status: "error",
+        latencyMs: Date.now() - requestStartedAt,
+        requestPayload: argumentsPayload,
+        error: {
+          code: error.code,
+          message: error.message,
+          details: error.details ?? null,
+        },
+      });
       return errorResponse(error.httpStatus, error.code, error.message, error.details);
     }
 
+    persistToolHistory({
+      serverId,
+      toolName,
+      status: "error",
+      latencyMs: Date.now() - requestStartedAt,
+      requestPayload: argumentsPayload,
+      error: {
+        code: "INTERNAL_ERROR",
+        message: "Failed to execute MCP tool",
+      },
+    });
     return errorResponse(500, "INTERNAL_ERROR", "Failed to execute MCP tool");
   }
 }

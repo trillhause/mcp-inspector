@@ -84,6 +84,32 @@ CREATE TABLE IF NOT EXISTS mcp_capabilities (
 
 CREATE INDEX IF NOT EXISTS idx_capabilities_server
 ON mcp_capabilities(mcp_server_id);
+
+CREATE TABLE IF NOT EXISTS mcp_execution_history (
+  id TEXT PRIMARY KEY,
+  mcp_server_id TEXT NOT NULL,
+  action_type TEXT NOT NULL CHECK (action_type IN ('tool_execute', 'resource_read')),
+  target_type TEXT NOT NULL CHECK (target_type IN ('tool', 'resource')),
+  target_value TEXT NOT NULL,
+  status TEXT NOT NULL CHECK (status IN ('success', 'error')),
+  latency_ms INTEGER NOT NULL DEFAULT 0 CHECK (latency_ms >= 0),
+  request_summary TEXT,
+  request_payload TEXT,
+  response_content_type TEXT,
+  response_payload TEXT,
+  error_code TEXT,
+  error_category TEXT,
+  error_message TEXT,
+  error_details TEXT,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  FOREIGN KEY (mcp_server_id) REFERENCES mcp_servers(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_execution_history_server_created
+ON mcp_execution_history(mcp_server_id, created_at DESC, id DESC);
+
+CREATE INDEX IF NOT EXISTS idx_execution_history_server_action_created
+ON mcp_execution_history(mcp_server_id, action_type, created_at DESC, id DESC);
 `;
 
 function getDbFilePath() {
@@ -167,6 +193,36 @@ function ensureCapabilitiesCacheTable(db: SqliteDatabase) {
   `);
 }
 
+function ensureExecutionHistoryTable(db: SqliteDatabase) {
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS mcp_execution_history (
+      id TEXT PRIMARY KEY,
+      mcp_server_id TEXT NOT NULL,
+      action_type TEXT NOT NULL CHECK (action_type IN ('tool_execute', 'resource_read')),
+      target_type TEXT NOT NULL CHECK (target_type IN ('tool', 'resource')),
+      target_value TEXT NOT NULL,
+      status TEXT NOT NULL CHECK (status IN ('success', 'error')),
+      latency_ms INTEGER NOT NULL DEFAULT 0 CHECK (latency_ms >= 0),
+      request_summary TEXT,
+      request_payload TEXT,
+      response_content_type TEXT,
+      response_payload TEXT,
+      error_code TEXT,
+      error_category TEXT,
+      error_message TEXT,
+      error_details TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      FOREIGN KEY (mcp_server_id) REFERENCES mcp_servers(id) ON DELETE CASCADE
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_execution_history_server_created
+    ON mcp_execution_history(mcp_server_id, created_at DESC, id DESC);
+
+    CREATE INDEX IF NOT EXISTS idx_execution_history_server_action_created
+    ON mcp_execution_history(mcp_server_id, action_type, created_at DESC, id DESC);
+  `);
+}
+
 export function getDb() {
   if (!globalThis.__mcpClientDb) {
     globalThis.__mcpClientDb = createDatabaseConnection();
@@ -187,6 +243,7 @@ export function initializeDatabase() {
   ensureOAuthStateColumns(db);
   ensureOAuthCredentialColumns(db);
   ensureCapabilitiesCacheTable(db);
+  ensureExecutionHistoryTable(db);
 }
 
 type QueryRow = Record<string, unknown>;
