@@ -1,5 +1,6 @@
 import "server-only";
 
+import { dbQueryFirst } from "@/lib/db";
 import type { AuthorizationServerMetadata } from "@/lib/oauth/discovery";
 
 const REQUEST_TIMEOUT_MS = 10_000;
@@ -49,7 +50,31 @@ function readFirstEnvValue(candidates: string[]) {
   return null;
 }
 
+function resolveDbStoredClientCredentials(serverId: string): OAuthClientCredentials | null {
+  const row = dbQueryFirst<{ oauth_client_id: string | null; oauth_client_secret: string | null }>(
+    "SELECT oauth_client_id, oauth_client_secret FROM mcp_servers WHERE id = ? LIMIT 1",
+    [serverId],
+  );
+
+  if (!row?.oauth_client_id) {
+    return null;
+  }
+
+  return {
+    clientId: row.oauth_client_id,
+    clientSecret: row.oauth_client_secret ?? null,
+    strategy: "configured",
+  };
+}
+
 function resolveConfiguredClientCredentials(serverId: string): OAuthClientCredentials {
+  // 1. Check DB-stored credentials first (set via the UI modal)
+  const dbCredentials = resolveDbStoredClientCredentials(serverId);
+  if (dbCredentials) {
+    return dbCredentials;
+  }
+
+  // 2. Fall back to environment variables
   const key = normalizeServerEnvKey(serverId);
   const clientId = readFirstEnvValue([
     `MCP_OAUTH_CLIENT_ID_${key}`,

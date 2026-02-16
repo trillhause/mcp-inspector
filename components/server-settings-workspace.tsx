@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Loader2 } from "lucide-react";
+import { Eye, EyeOff, Loader2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -327,6 +327,13 @@ export function ServerSettingsWorkspace({ server, onServerUpdated }: ServerSetti
           </div>
         </div>
 
+        {server.oauth_client_id ? (
+          <OAuthCredentialsSection
+            server={server}
+            onServerUpdated={onServerUpdated}
+          />
+        ) : null}
+
         {dirty ? (
           <div className="rounded-md border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-900">
             You have unsaved changes.
@@ -359,6 +366,178 @@ export function ServerSettingsWorkspace({ server, onServerUpdated }: ServerSetti
           </Button>
         </div>
       </form>
+    </div>
+  );
+}
+
+function OAuthCredentialsSection({
+  server,
+  onServerUpdated,
+}: {
+  server: McpServer;
+  onServerUpdated?: (server: McpServer) => void;
+}) {
+  const [clientId, setClientId] = useState(server.oauth_client_id ?? "");
+  const [clientSecret, setClientSecret] = useState(server.oauth_client_secret ?? "");
+  const [showSecret, setShowSecret] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
+
+  useEffect(() => {
+    setClientId(server.oauth_client_id ?? "");
+    setClientSecret(server.oauth_client_secret ?? "");
+    setError(null);
+    setSuccess(null);
+  }, [server.id, server.oauth_client_id, server.oauth_client_secret]);
+
+  const handleSave = async () => {
+    setError(null);
+    setSuccess(null);
+    setIsSaving(true);
+
+    try {
+      const response = await fetch(`/api/servers/${encodeURIComponent(server.id)}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          oauth_client_id: clientId.trim() || null,
+          oauth_client_secret: clientSecret.trim() || null,
+        }),
+      });
+
+      const payload = (await response.json().catch(() => null)) as {
+        server?: McpServer;
+        error?: { message?: string; details?: string[] };
+      } | null;
+
+      if (!response.ok) {
+        setError(payload?.error?.details?.[0] ?? payload?.error?.message ?? "Failed to save credentials.");
+        return;
+      }
+
+      if (payload?.server) {
+        onServerUpdated?.(payload.server);
+      }
+      setSuccess("OAuth credentials updated.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to save credentials.");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleClear = async () => {
+    setError(null);
+    setSuccess(null);
+    setIsSaving(true);
+
+    try {
+      const response = await fetch(`/api/servers/${encodeURIComponent(server.id)}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          oauth_client_id: null,
+          oauth_client_secret: null,
+        }),
+      });
+
+      const payload = (await response.json().catch(() => null)) as {
+        server?: McpServer;
+        error?: { message?: string; details?: string[] };
+      } | null;
+
+      if (!response.ok) {
+        setError(payload?.error?.details?.[0] ?? payload?.error?.message ?? "Failed to clear credentials.");
+        return;
+      }
+
+      if (payload?.server) {
+        onServerUpdated?.(payload.server);
+      }
+      setClientId("");
+      setClientSecret("");
+      setSuccess("OAuth credentials cleared.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to clear credentials.");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  return (
+    <div className="rounded-lg border bg-background p-3">
+      <h3 className="text-sm font-medium">OAuth Credentials</h3>
+      <p className="mt-1 text-xs text-muted-foreground">
+        Stored credentials for servers that don&apos;t support dynamic client registration.
+      </p>
+
+      <div className="mt-3 space-y-3">
+        <div className="space-y-2">
+          <Label htmlFor="oauth-cred-client-id">Client ID</Label>
+          <Input
+            id="oauth-cred-client-id"
+            value={clientId}
+            onChange={(event) => {
+              setClientId(event.target.value);
+              setSuccess(null);
+            }}
+            disabled={isSaving}
+          />
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="oauth-cred-client-secret">Client Secret</Label>
+          <div className="relative">
+            <Input
+              id="oauth-cred-client-secret"
+              type={showSecret ? "text" : "password"}
+              value={clientSecret}
+              onChange={(event) => {
+                setClientSecret(event.target.value);
+                setSuccess(null);
+              }}
+              disabled={isSaving}
+              className="pr-10"
+            />
+            <button
+              type="button"
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+              onClick={() => setShowSecret((prev) => !prev)}
+              tabIndex={-1}
+            >
+              {showSecret ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+            </button>
+          </div>
+        </div>
+
+        {error ? (
+          <div className="rounded-md border border-destructive/30 bg-destructive/5 p-2 text-xs text-destructive">
+            {error}
+          </div>
+        ) : null}
+        {success ? (
+          <div className="rounded-md border border-emerald-500/30 bg-emerald-500/10 p-2 text-xs text-emerald-900">
+            {success}
+          </div>
+        ) : null}
+
+        <div className="flex items-center gap-2">
+          <Button type="button" size="sm" onClick={handleSave} disabled={isSaving}>
+            {isSaving ? (
+              <>
+                <Loader2 className="size-4 animate-spin" />
+                Saving...
+              </>
+            ) : (
+              "Update credentials"
+            )}
+          </Button>
+          <Button type="button" variant="outline" size="sm" onClick={handleClear} disabled={isSaving}>
+            Clear credentials
+          </Button>
+        </div>
+      </div>
     </div>
   );
 }
