@@ -25,6 +25,10 @@ type OAuthNotice = {
 
 function sortServers(serverList: McpServer[]) {
   return [...serverList].sort((a, b) => {
+    if (a.is_enabled !== b.is_enabled) {
+      return a.is_enabled ? -1 : 1;
+    }
+
     if (a.is_preconfigured !== b.is_preconfigured) {
       return a.is_preconfigured ? -1 : 1;
     }
@@ -246,7 +250,7 @@ export default function Home() {
         });
       }
     },
-    [connectingServerIds, disconnectingServerIds],
+    [connectingServerIds, disconnectingServerIds, loadServers],
   );
 
   const handleDisconnectServer = useCallback(
@@ -404,6 +408,21 @@ export default function Home() {
     [],
   );
 
+  const handleServerUpdated = useCallback((updatedServer: McpServer) => {
+    setServers((previousServers) =>
+      sortServers(
+        previousServers.map((server) =>
+          server.id === updatedServer.id
+            ? {
+                ...server,
+                ...updatedServer,
+              }
+            : server,
+        ),
+      ),
+    );
+  }, []);
+
   return (
     <div className="flex h-dvh flex-col bg-background">
       <Header
@@ -479,6 +498,7 @@ export default function Home() {
               onDisconnect={(serverId) => void handleDisconnectServer(serverId)}
               onCapabilitiesLoaded={handleCapabilitiesLoaded}
               onTokenLifecycleUpdated={handleServerTokenLifecycleUpdated}
+              onServerUpdated={handleServerUpdated}
               isConnecting={connectingServerIds.has(selectedServer.id)}
               isDisconnecting={disconnectingServerIds.has(selectedServer.id)}
             />

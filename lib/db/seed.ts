@@ -62,10 +62,10 @@ export function seedPreconfiguredServers() {
       name = excluded.name,
       description = excluded.description,
       mcp_url = excluded.mcp_url,
-      transport = excluded.transport,
+      transport = mcp_servers.transport,
       icon_url = excluded.icon_url,
       is_preconfigured = 1,
-      is_enabled = excluded.is_enabled,
+      is_enabled = mcp_servers.is_enabled,
       updated_at = datetime('now')
   `);
 

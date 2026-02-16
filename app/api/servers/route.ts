@@ -135,8 +135,7 @@ export async function GET() {
 
   const rows = dbQueryAll<ServerRow>(
     `${SERVER_SELECT_SQL}
-     WHERE s.is_enabled = 1
-     ORDER BY s.is_preconfigured DESC, LOWER(s.name) ASC, s.id ASC`,
+     ORDER BY s.is_enabled DESC, s.is_preconfigured DESC, LOWER(s.name) ASC, s.id ASC`,
   );
 
   return NextResponse.json({

@@ -6,7 +6,7 @@ import {
   isOAuthDiscoveryError,
   startOAuthAuthorizationFlow,
 } from "@/lib/oauth/authorize-flow";
-import { dbExecute } from "@/lib/db";
+import { dbExecute, dbQueryFirst } from "@/lib/db";
 import { bootstrapServerStore, PayloadValidationError } from "@/lib/servers";
 
 export const runtime = "nodejs";
@@ -116,6 +116,21 @@ export async function POST(
 ) {
   bootstrapServerStore();
   const { id } = await context.params;
+
+  const server = dbQueryFirst<{ id: string; is_enabled: number }>(
+    "SELECT id, is_enabled FROM mcp_servers WHERE id = ? LIMIT 1",
+    [id],
+  );
+  if (!server) {
+    return errorResponse(404, "NOT_FOUND", "Server not found");
+  }
+  if (server.is_enabled !== 1) {
+    return errorResponse(
+      409,
+      "SERVER_DISABLED",
+      "This server is disabled. Re-enable it in settings before connecting.",
+    );
+  }
 
   let payload: ConnectRequestPayload;
   try {
