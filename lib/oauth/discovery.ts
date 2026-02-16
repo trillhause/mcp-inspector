@@ -52,7 +52,7 @@ export type AuthorizationServerMetadata = {
 export type OAuthDiscoveryResult = {
   mcp_url: string;
   protected_resource_url: string;
-  protected_resource_metadata: ProtectedResourceMetadata;
+  protected_resource_metadata: ProtectedResourceMetadata | null;
   authorization_server_url: string;
   authorization_server_metadata: AuthorizationServerMetadata;
 };
@@ -298,23 +298,55 @@ export async function discoverAuthorizationServerMetadata(authorizationServerUrl
 }
 
 export async function discoverOAuthMetadata(mcpUrl: string): Promise<OAuthDiscoveryResult> {
-  const protectedResource = await discoverProtectedResourceMetadata(mcpUrl);
-  const firstAuthorizationServer = protectedResource.metadata.authorization_servers[0];
-
-  if (!firstAuthorizationServer) {
-    throw new OAuthDiscoveryError(
-      "INVALID_METADATA",
-      "Protected resource metadata has no authorization server URL",
-      { httpStatus: 502 },
-    );
+  let canonical: ReturnType<typeof canonicalizeMcpUrl>;
+  try {
+    canonical = canonicalizeMcpUrl(mcpUrl);
+  } catch (error) {
+    throw new OAuthDiscoveryError("INVALID_METADATA", "mcp_url is invalid for discovery", {
+      httpStatus: 400,
+      cause: error,
+    });
   }
 
-  const authorizationServer = await discoverAuthorizationServerMetadata(firstAuthorizationServer);
+  // Try RFC 9728 protected resource metadata first
+  try {
+    const protectedResource = await discoverProtectedResourceMetadata(mcpUrl);
+    const firstAuthorizationServer = protectedResource.metadata.authorization_servers[0];
+
+    if (!firstAuthorizationServer) {
+      throw new OAuthDiscoveryError(
+        "INVALID_METADATA",
+        "Protected resource metadata has no authorization server URL",
+        { httpStatus: 502 },
+      );
+    }
+
+    const authorizationServer = await discoverAuthorizationServerMetadata(firstAuthorizationServer);
+
+    return {
+      mcp_url: protectedResource.mcp_url,
+      protected_resource_url: protectedResource.protected_resource_url,
+      protected_resource_metadata: protectedResource.metadata,
+      authorization_server_url: authorizationServer.authorization_server_url,
+      authorization_server_metadata: authorizationServer.authorization_server_metadata,
+    };
+  } catch (error) {
+    if (
+      !(error instanceof OAuthDiscoveryError) ||
+      error.code !== "UNSUPPORTED_SERVER"
+    ) {
+      throw error;
+    }
+  }
+
+  // Fallback: server doesn't support RFC 9728, try authorization server
+  // metadata directly at the MCP server's origin (RFC 8414)
+  const authorizationServer = await discoverAuthorizationServerMetadata(canonical.origin);
 
   return {
-    mcp_url: protectedResource.mcp_url,
-    protected_resource_url: protectedResource.protected_resource_url,
-    protected_resource_metadata: protectedResource.metadata,
+    mcp_url: canonical.canonicalUrl,
+    protected_resource_url: canonical.protectedResourceDiscoveryUrl,
+    protected_resource_metadata: null,
     authorization_server_url: authorizationServer.authorization_server_url,
     authorization_server_metadata: authorizationServer.authorization_server_metadata,
   };

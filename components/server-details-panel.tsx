@@ -21,7 +21,16 @@ import { ToolExecutionWorkspace } from "@/components/tool-execution-workspace";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import type { McpSurfaceState } from "@/lib/mcp/interaction-contract";
+import {
+  buildMcpSurfaceErrorDiagnostics,
+  normalizeMcpSurfaceError,
+  resolveMcpSurfaceErrorAction,
+  type McpSurfaceError,
+} from "@/lib/mcp/interaction-error-ui";
+import type {
+  McpInteractionErrorCode,
+  McpSurfaceState,
+} from "@/lib/mcp/interaction-contract";
 import type { ConnectionStatus, McpServer } from "@/lib/types";
 
 type ServerDetailsPanelProps = {
@@ -38,9 +47,15 @@ type ServerDetailsPanelProps = {
 
 type CapabilitiesApiError = {
   code: string;
+  category?: string;
   message: string;
   details?: string[];
   stale?: boolean;
+};
+
+type CapabilitiesSurfaceError = McpSurfaceError & {
+  source: "server" | "network" | "client";
+  failedAt: string;
 };
 
 type CapabilitiesApiPayload = {
@@ -135,7 +150,7 @@ function SelectedServerContent({
 }) {
   const [activeTab, setActiveTab] = useState<CapabilitiesTab>("tools");
   const [capabilities, setCapabilities] = useState<CapabilitiesApiPayload | null>(null);
-  const [capabilitiesError, setCapabilitiesError] = useState<string | null>(null);
+  const [capabilitiesError, setCapabilitiesError] = useState<CapabilitiesSurfaceError | null>(null);
   const [capabilitiesWarning, setCapabilitiesWarning] = useState<string | null>(null);
   const [refreshNotice, setRefreshNotice] = useState<string | null>(null);
   const [isLoadingCapabilities, setIsLoadingCapabilities] = useState(false);
@@ -246,10 +261,15 @@ function SelectedServerContent({
 
         const payload = await response.json().catch(() => null);
         if (!response.ok) {
-          const message =
-            readErrorMessage(payload) ??
-            `Failed to load capabilities (HTTP ${response.status})`;
-          throw new Error(message);
+          const normalizedError = normalizeMcpSurfaceError(payload, {
+            fallbackCode: "INTERNAL_ERROR",
+            fallbackMessage: `Failed to load capabilities (HTTP ${response.status})`,
+          });
+          throw {
+            ...normalizedError,
+            source: "server" as const,
+            failedAt: new Date().toISOString(),
+          } satisfies CapabilitiesSurfaceError;
         }
 
         const parsedPayload = normalizeCapabilitiesPayload(payload);
@@ -300,8 +320,12 @@ function SelectedServerContent({
           return { ok: false, stale: false, message };
         }
 
-        const message =
-          error instanceof Error ? error.message : "Failed to load capabilities";
+        const normalizedError = normalizeCapabilitiesSurfaceError(error, {
+          fallbackCode: "NETWORK_ERROR",
+          fallbackMessage: "Failed to load capabilities",
+          source: "network",
+        });
+        const message = normalizedError.message;
 
         if (capabilitiesRef.current) {
           setCapabilitiesWarning(message);
@@ -311,7 +335,7 @@ function SelectedServerContent({
         } else {
           capabilitiesRef.current = null;
           setCapabilities(null);
-          setCapabilitiesError(message);
+          setCapabilitiesError(normalizedError);
         }
         return {
           ok: false,
@@ -471,14 +495,23 @@ function SelectedServerContent({
         >
           {isHistoryTab ? (
             <TabsContent value="history" className="mt-0 min-h-0 flex-1 overflow-y-auto pr-1">
-              <ExecutionHistoryWorkspace serverId={server.id} serverName={server.name} />
+              <ExecutionHistoryWorkspace
+                serverId={server.id}
+                serverName={server.name}
+                onReconnect={onConnect ? () => onConnect(server.id) : undefined}
+                onRefreshCapabilities={() => void loadCapabilities({ refresh: true })}
+              />
             </TabsContent>
           ) : !canInspectCapabilities ? (
             <DisconnectedCapabilitiesState />
           ) : capabilitiesSurfaceState === "error" ? (
             <CapabilitiesErrorState
-              error={capabilitiesError ?? "Failed to load capabilities."}
+              error={capabilitiesError}
               onRetry={() => void loadCapabilities()}
+              onReconnect={
+                onConnect ? () => onConnect(server.id) : undefined
+              }
+              onRefreshCapabilities={() => void loadCapabilities({ refresh: true })}
               isRetrying={isLoadingCapabilities}
             />
           ) : capabilitiesSurfaceState === "loading" ? (
@@ -537,6 +570,8 @@ function SelectedServerContent({
                     serverId={server.id}
                     serverName={server.name}
                     tools={capabilities.tools}
+                    onReconnect={onConnect ? () => onConnect(server.id) : undefined}
+                    onRefreshCapabilities={() => void loadCapabilities({ refresh: true })}
                   />
                 ) : (
                   <CapabilitiesEmptyState
@@ -553,6 +588,8 @@ function SelectedServerContent({
                     serverId={server.id}
                     serverName={server.name}
                     resources={capabilities.resources}
+                    onReconnect={onConnect ? () => onConnect(server.id) : undefined}
+                    onRefreshCapabilities={() => void loadCapabilities({ refresh: true })}
                   />
                 ) : (
                   <CapabilitiesEmptyState
@@ -608,26 +645,87 @@ function CapabilitiesLoadingState() {
 function CapabilitiesErrorState({
   error,
   onRetry,
+  onReconnect,
+  onRefreshCapabilities,
   isRetrying,
 }: {
-  error: string;
+  error: CapabilitiesSurfaceError | null;
   onRetry: () => void;
+  onReconnect?: () => void;
+  onRefreshCapabilities?: () => void;
   isRetrying: boolean;
 }) {
+  const resolvedError =
+    error ??
+    normalizeCapabilitiesSurfaceError(
+      {
+        error: {
+          code: "INTERNAL_ERROR",
+          message: "Failed to load capabilities.",
+        },
+      },
+      {
+        fallbackCode: "INTERNAL_ERROR",
+        fallbackMessage: "Failed to load capabilities.",
+        source: "client",
+      },
+    );
+  const remediation = resolveMcpSurfaceErrorAction(resolvedError, {
+    retry: onRetry,
+    reconnect: onReconnect,
+    refreshCapabilities: onRefreshCapabilities,
+    checkEndpoint: onRetry,
+  });
+  const diagnostics = buildMcpSurfaceErrorDiagnostics(resolvedError, {
+    source: resolvedError.source,
+    failed_at: resolvedError.failedAt,
+    context: "capabilities",
+  });
+
   return (
     <div className="flex h-full items-center justify-center rounded-md bg-destructive/5 px-6" role="alert">
       <div className="max-w-xl space-y-3 text-center">
-        <p className="text-sm text-destructive">Failed to load capabilities: {error}</p>
-        <Button type="button" variant="outline" onClick={onRetry} disabled={isRetrying}>
-          {isRetrying ? (
-            <>
-              <Loader2 className="size-4 animate-spin" />
-              Retrying...
-            </>
-          ) : (
-            "Retry"
-          )}
-        </Button>
+        <p className="text-sm text-destructive">Failed to load capabilities: {resolvedError.message}</p>
+        {resolvedError.details.length > 0 ? (
+          <ul className="list-disc space-y-1 pl-5 text-left text-xs text-destructive">
+            {resolvedError.details.map((detail, index) => (
+              <li key={`${detail}-${index}`}>{detail}</li>
+            ))}
+          </ul>
+        ) : null}
+        <p className="text-xs text-destructive">{remediation.hint}</p>
+        <div className="flex flex-wrap items-center justify-center gap-2">
+          {remediation.onClick ? (
+            <Button type="button" variant="outline" onClick={remediation.onClick} disabled={isRetrying}>
+              {isRetrying ? (
+                <>
+                  <Loader2 className="size-4 animate-spin" />
+                  Retrying...
+                </>
+              ) : (
+                remediation.label
+              )}
+            </Button>
+          ) : null}
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => void navigator.clipboard.writeText(diagnostics)}
+          >
+            Copy Diagnostics
+          </Button>
+        </div>
+        {remediation.action !== "retry" ? (
+          <Button type="button" variant="ghost" onClick={onRetry} disabled={isRetrying}>
+            Retry fetch
+          </Button>
+        ) : null}
+        <details className="rounded border bg-background p-2 text-left text-[11px] text-muted-foreground">
+          <summary className="cursor-pointer text-xs font-medium">Diagnostics</summary>
+          <pre className="mt-2 max-h-44 overflow-auto whitespace-pre-wrap break-words font-mono text-foreground">
+            {diagnostics}
+          </pre>
+        </details>
       </div>
     </div>
   );
@@ -662,12 +760,43 @@ function normalizeNullableNumber(value: unknown) {
   return null;
 }
 
-function readErrorMessage(payload: unknown) {
-  if (!isRecord(payload) || !isRecord(payload.error)) {
-    return null;
+function isCapabilitiesSurfaceError(value: unknown): value is CapabilitiesSurfaceError {
+  if (!isRecord(value)) {
+    return false;
   }
 
-  return normalizeOptionalString(payload.error.message);
+  return (
+    typeof value.message === "string" &&
+    typeof value.code === "string" &&
+    typeof value.category === "string" &&
+    Array.isArray(value.details) &&
+    typeof value.source === "string" &&
+    typeof value.failedAt === "string"
+  );
+}
+
+function normalizeCapabilitiesSurfaceError(
+  error: unknown,
+  options: {
+    fallbackCode: McpInteractionErrorCode;
+    fallbackMessage: string;
+    source: CapabilitiesSurfaceError["source"];
+  },
+): CapabilitiesSurfaceError {
+  if (isCapabilitiesSurfaceError(error)) {
+    return error;
+  }
+
+  const normalized = normalizeMcpSurfaceError(error, {
+    fallbackCode: options.fallbackCode,
+    fallbackMessage: options.fallbackMessage,
+  });
+
+  return {
+    ...normalized,
+    source: options.source,
+    failedAt: new Date().toISOString(),
+  };
 }
 
 function normalizeCapabilitiesPayload(payload: unknown): CapabilitiesApiPayload {
@@ -710,6 +839,7 @@ function normalizeCapabilitiesPayload(payload: unknown): CapabilitiesApiPayload 
     if (message) {
       response.error = {
         code: normalizeOptionalString(payload.error.code) ?? "CAPABILITY_LOAD_FAILED",
+        category: normalizeOptionalString(payload.error.category) ?? undefined,
         message,
         details: Array.isArray(payload.error.details)
           ? payload.error.details

@@ -14,6 +14,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  buildMcpSurfaceErrorDiagnostics,
+  normalizeMcpSurfaceError,
+  resolveMcpSurfaceErrorAction,
+  type McpSurfaceError,
+} from "@/lib/mcp/interaction-error-ui";
 import type {
   ExecuteToolSuccessResponse,
   InteractionRunState,
@@ -24,6 +30,8 @@ type ToolExecutionWorkspaceProps = {
   serverId: string;
   serverName: string;
   tools: ToolCapability[];
+  onReconnect?: () => void;
+  onRefreshCapabilities?: () => void;
 };
 
 type SchemaFieldKind =
@@ -61,10 +69,7 @@ type ValidationOutcome = {
   summaryErrors: string[];
 };
 
-type ToolExecutionError = {
-  code: string;
-  message: string;
-  details: string[];
+type ToolExecutionError = McpSurfaceError & {
   source: "client" | "server" | "network";
   failedAt: string;
 };
@@ -72,6 +77,7 @@ type ToolExecutionError = {
 type ExecuteApiErrorPayload = {
   error?: {
     code?: string;
+    category?: string;
     message?: string;
     details?: unknown;
   };
@@ -499,16 +505,6 @@ function validateDraftValues(
   };
 }
 
-function normalizeErrorDetails(details: unknown) {
-  if (!Array.isArray(details)) {
-    return [];
-  }
-
-  return details
-    .map((detail) => normalizeOptionalString(detail))
-    .filter((detail): detail is string => Boolean(detail));
-}
-
 function normalizeExecutionSuccess(payload: unknown): ExecuteToolSuccessResponse | null {
   if (!isRecord(payload)) {
     return null;
@@ -558,18 +554,14 @@ function buildToolErrorDiagnostics(
   toolName: string,
   serverName: string,
 ) {
-  return JSON.stringify(
+  return buildMcpSurfaceErrorDiagnostics(
+    error,
     {
-      code: error.code,
       source: error.source,
-      message: error.message,
-      details: error.details,
       server: serverName,
       tool_name: toolName,
       failed_at: error.failedAt,
     },
-    null,
-    2,
   );
 }
 
@@ -577,6 +569,8 @@ export function ToolExecutionWorkspace({
   serverId,
   serverName,
   tools,
+  onReconnect,
+  onRefreshCapabilities,
 }: ToolExecutionWorkspaceProps) {
   const [selectedToolName, setSelectedToolName] = useState<string>(tools[0]?.name ?? "");
 
@@ -647,6 +641,8 @@ export function ToolExecutionWorkspace({
             serverId={serverId}
             serverName={serverName}
             selectedTool={selectedTool}
+            onReconnect={onReconnect}
+            onRefreshCapabilities={onRefreshCapabilities}
           />
         ) : (
           <p className="text-sm text-muted-foreground">Select a tool to execute.</p>
@@ -660,10 +656,14 @@ function ToolExecutionForm({
   serverId,
   serverName,
   selectedTool,
+  onReconnect,
+  onRefreshCapabilities,
 }: {
   serverId: string;
   serverName: string;
   selectedTool: ToolCapability;
+  onReconnect?: () => void;
+  onRefreshCapabilities?: () => void;
 }) {
   const formDefinition = useMemo(
     () => buildToolFormDefinition(selectedTool.inputSchema),
@@ -741,13 +741,12 @@ function ToolExecutionForm({
         const payload = (await response.json().catch(() => null)) as unknown;
         if (!response.ok) {
           const normalizedPayload = (isRecord(payload) ? payload : {}) as ExecuteApiErrorPayload;
-          const message =
-            normalizeOptionalString(normalizedPayload.error?.message) ??
-            `Tool execution failed (HTTP ${response.status})`;
+          const normalizedError = normalizeMcpSurfaceError(normalizedPayload, {
+            fallbackCode: "EXECUTION_FAILED",
+            fallbackMessage: `Tool execution failed (HTTP ${response.status})`,
+          });
           setExecutionError({
-            code: normalizeOptionalString(normalizedPayload.error?.code) ?? "EXECUTION_FAILED",
-            message,
-            details: normalizeErrorDetails(normalizedPayload.error?.details),
+            ...normalizedError,
             source: "server",
             failedAt: new Date().toISOString(),
           });
@@ -757,10 +756,20 @@ function ToolExecutionForm({
 
         const normalized = normalizeExecutionSuccess(payload);
         if (!normalized) {
+          const normalizedError = normalizeMcpSurfaceError(
+            {
+              error: {
+                code: "INTERNAL_ERROR",
+                message: "Execution succeeded but response payload was invalid.",
+              },
+            },
+            {
+              fallbackCode: "INTERNAL_ERROR",
+              fallbackMessage: "Execution succeeded but response payload was invalid.",
+            },
+          );
           setExecutionError({
-            code: "INTERNAL_ERROR",
-            message: "Execution succeeded but response payload was invalid.",
-            details: [],
+            ...normalizedError,
             source: "client",
             failedAt: new Date().toISOString(),
           });
@@ -771,10 +780,20 @@ function ToolExecutionForm({
         setExecutionResult(normalized);
         setRunState("success");
       } catch (error) {
+        const normalizedError = normalizeMcpSurfaceError(
+          {
+            error: {
+              code: "NETWORK_ERROR",
+              message: error instanceof Error ? error.message : "Tool execution request failed.",
+            },
+          },
+          {
+            fallbackCode: "NETWORK_ERROR",
+            fallbackMessage: "Tool execution request failed.",
+          },
+        );
         setExecutionError({
-          code: "NETWORK_ERROR",
-          message: error instanceof Error ? error.message : "Tool execution request failed.",
-          details: [],
+          ...normalizedError,
           source: "network",
           failedAt: new Date().toISOString(),
         });
@@ -797,10 +816,21 @@ function ToolExecutionForm({
 
       if (!validation.argumentsPayload) {
         setExecutionResult(null);
+        const normalizedError = normalizeMcpSurfaceError(
+          {
+            error: {
+              code: "VALIDATION_ERROR",
+              message: "Please correct validation errors before execution.",
+              details: validation.summaryErrors,
+            },
+          },
+          {
+            fallbackCode: "VALIDATION_ERROR",
+            fallbackMessage: "Please correct validation errors before execution.",
+          },
+        );
         setExecutionError({
-          code: "VALIDATION_ERROR",
-          message: "Please correct validation errors before execution.",
-          details: validation.summaryErrors,
+          ...normalizedError,
           source: "client",
           failedAt: new Date().toISOString(),
         });
@@ -822,6 +852,31 @@ function ToolExecutionForm({
     void executeArguments(lastSubmittedArguments);
   }, [executeArguments, lastSubmittedArguments, runState]);
 
+  const focusFirstInvalidInput = useCallback(() => {
+    const firstFieldName =
+      formDefinition.mode === "raw_json"
+        ? RAW_ARGUMENTS_FIELD
+        : Object.keys(fieldErrors)[0] ?? null;
+    if (!firstFieldName) {
+      return;
+    }
+
+    document.getElementById(`tool-field-${firstFieldName}`)?.focus();
+  }, [fieldErrors, formDefinition.mode]);
+
+  const executionErrorDiagnostics = executionError
+    ? buildToolErrorDiagnostics(executionError, selectedTool.name, serverName)
+    : null;
+  const executionErrorAction = executionError
+    ? resolveMcpSurfaceErrorAction(executionError, {
+        retry: handleRetry,
+        reconnect: onReconnect,
+        fixInput: focusFirstInvalidInput,
+        refreshCapabilities: onRefreshCapabilities,
+        checkEndpoint: handleRetry,
+      })
+    : null;
+
   return (
     <form className="flex h-full min-h-0 min-w-0 flex-col gap-4" onSubmit={handleSubmit}>
       <div className="space-y-1">
@@ -837,9 +892,9 @@ function ToolExecutionForm({
       <div className="min-h-0 flex-1 space-y-3 overflow-y-auto pr-1">
         {formDefinition.mode === "raw_json" ? (
           <div className="space-y-2">
-            <Label htmlFor={RAW_ARGUMENTS_FIELD}>Arguments JSON</Label>
+            <Label htmlFor={`tool-field-${RAW_ARGUMENTS_FIELD}`}>Arguments JSON</Label>
             <Textarea
-              id={RAW_ARGUMENTS_FIELD}
+              id={`tool-field-${RAW_ARGUMENTS_FIELD}`}
               value={draftValues[RAW_ARGUMENTS_FIELD] ?? ""}
               onChange={(event) =>
                 updateDraftValue(RAW_ARGUMENTS_FIELD, event.target.value)
@@ -997,8 +1052,23 @@ function ToolExecutionForm({
               ))}
             </ul>
           ) : null}
+          <p className="text-[11px]">
+            {executionErrorAction?.hint ??
+              "Retry this action and inspect diagnostics if the issue persists."}
+          </p>
+          {executionErrorAction?.onClick ? (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={executionErrorAction.onClick}
+              disabled={runState === "executing"}
+            >
+              {executionErrorAction.label}
+            </Button>
+          ) : null}
           <pre className="max-h-48 overflow-auto rounded border bg-background p-2 font-mono text-[11px] whitespace-pre-wrap break-words text-foreground">
-            {buildToolErrorDiagnostics(executionError, selectedTool.name, serverName)}
+            {executionErrorDiagnostics}
           </pre>
           <Button
             type="button"
@@ -1006,7 +1076,7 @@ function ToolExecutionForm({
             size="sm"
             onClick={() =>
               void copyText(
-                buildToolErrorDiagnostics(executionError, selectedTool.name, serverName),
+                executionErrorDiagnostics ?? "",
                 "Copied error diagnostics.",
               )
             }
