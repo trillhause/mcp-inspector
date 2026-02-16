@@ -4,10 +4,15 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AlertCircle, CheckCircle2, Copy, Loader2, RefreshCw } from "lucide-react";
 
 import { JsonPayloadViewer, normalizePayload } from "@/components/json-payload-viewer";
+import {
+  LoadingSection,
+  SkeletonCard,
+} from "@/components/loading-state-primitives";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import type {
   ListExecutionHistoryResponse,
+  McpSurfaceState,
   McpExecutionHistoryItem,
 } from "@/lib/mcp/interaction-contract";
 import { cn } from "@/lib/utils";
@@ -19,6 +24,14 @@ type ExecutionHistoryWorkspaceProps = {
 
 const DEFAULT_PAGE_LIMIT = 20;
 type HistoryErrorCategory = NonNullable<McpExecutionHistoryItem["error"]>["category"];
+const HISTORY_SURFACE_LABELS: Record<McpSurfaceState, string> = {
+  idle: "Idle",
+  loading: "Loading",
+  success: "Ready",
+  empty: "Empty",
+  stale: "Stale",
+  error: "Error",
+};
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
@@ -196,9 +209,17 @@ export function ExecutionHistoryWorkspace({
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [staleMessage, setStaleMessage] = useState<string | null>(null);
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
   const [clipboardNotice, setClipboardNotice] = useState<string | null>(null);
   const requestSequenceRef = useRef(0);
+  const itemsRef = useRef<McpExecutionHistoryItem[]>([]);
+  const historyCacheRef = useRef<
+    Map<
+      string,
+      { items: McpExecutionHistoryItem[]; nextCursor: string | null; selectedItemId: string | null }
+    >
+  >(new Map());
 
   const selectedItem = useMemo(() => {
     if (items.length === 0) {
@@ -211,6 +232,34 @@ export function ExecutionHistoryWorkspace({
 
     return items.find((item) => item.id === selectedItemId) ?? items[0];
   }, [items, selectedItemId]);
+
+  const surfaceState = useMemo<McpSurfaceState>(() => {
+    if (isLoading && items.length === 0) {
+      return "loading";
+    }
+    if (errorMessage && items.length === 0) {
+      return "error";
+    }
+    if (staleMessage && items.length > 0) {
+      return "stale";
+    }
+    if (items.length === 0) {
+      return "empty";
+    }
+    return "success";
+  }, [errorMessage, isLoading, items.length, staleMessage]);
+
+  useEffect(() => {
+    itemsRef.current = items;
+  }, [items]);
+
+  useEffect(() => {
+    historyCacheRef.current.set(serverId, {
+      items,
+      nextCursor,
+      selectedItemId,
+    });
+  }, [items, nextCursor, selectedItemId, serverId]);
 
   useEffect(() => {
     if (!selectedItem && items.length > 0) {
@@ -273,30 +322,63 @@ export function ExecutionHistoryWorkspace({
       setItems((previousItems) => (append ? [...previousItems, ...normalized.items] : normalized.items));
       setNextCursor(normalized.next_cursor);
       setErrorMessage(null);
+      setStaleMessage(null);
     },
     [serverId],
   );
 
-  const loadInitial = useCallback(async () => {
-    setIsLoading(true);
-    setErrorMessage(null);
-    setClipboardNotice(null);
-    setSelectedItemId(null);
+  const loadInitial = useCallback(
+    async ({ keepExisting = false }: { keepExisting?: boolean } = {}) => {
+      if (keepExisting) {
+        setIsRefreshing(true);
+      } else {
+        setIsLoading(true);
+        setSelectedItemId(null);
+      }
 
-    try {
-      await fetchHistory({ cursor: null, append: false });
-    } catch (error) {
-      setItems([]);
-      setNextCursor(null);
-      setErrorMessage(error instanceof Error ? error.message : "Failed to load history.");
-    } finally {
-      setIsLoading(false);
-    }
-  }, [fetchHistory]);
+      setErrorMessage(null);
+      setStaleMessage(null);
+      setClipboardNotice(null);
+
+      try {
+        await fetchHistory({ cursor: null, append: false });
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "Failed to load history.";
+        if (keepExisting && itemsRef.current.length > 0) {
+          setStaleMessage(`${message} Showing previous history results.`);
+        } else {
+          setItems([]);
+          setNextCursor(null);
+          setErrorMessage(message);
+        }
+      } finally {
+        if (keepExisting) {
+          setIsRefreshing(false);
+        } else {
+          setIsLoading(false);
+        }
+      }
+    },
+    [fetchHistory],
+  );
 
   useEffect(() => {
+    const cachedHistory = historyCacheRef.current.get(serverId);
+    if (cachedHistory && cachedHistory.items.length > 0) {
+      setItems(cachedHistory.items);
+      setNextCursor(cachedHistory.nextCursor);
+      setSelectedItemId(cachedHistory.selectedItemId ?? cachedHistory.items[0]?.id ?? null);
+      setErrorMessage(null);
+      setStaleMessage(null);
+      void loadInitial({ keepExisting: true });
+      return;
+    }
+
+    setItems([]);
+    setNextCursor(null);
+    setSelectedItemId(null);
     void loadInitial();
-  }, [loadInitial]);
+  }, [loadInitial, serverId]);
 
   const handleRefresh = useCallback(async () => {
     if (isRefreshing || isLoading) {
@@ -304,12 +386,18 @@ export function ExecutionHistoryWorkspace({
     }
 
     setIsRefreshing(true);
+    setStaleMessage(null);
     setClipboardNotice(null);
 
     try {
       await fetchHistory({ cursor: null, append: false });
     } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : "Failed to refresh history.");
+      const message = error instanceof Error ? error.message : "Failed to refresh history.";
+      if (itemsRef.current.length > 0) {
+        setStaleMessage(`${message} Showing previous history results.`);
+      } else {
+        setErrorMessage(message);
+      }
     } finally {
       setIsRefreshing(false);
     }
@@ -321,12 +409,18 @@ export function ExecutionHistoryWorkspace({
     }
 
     setIsLoadingMore(true);
+    setStaleMessage(null);
     setClipboardNotice(null);
 
     try {
       await fetchHistory({ cursor: nextCursor, append: true });
     } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : "Failed to load more history.");
+      const message = error instanceof Error ? error.message : "Failed to load more history.";
+      if (itemsRef.current.length > 0) {
+        setStaleMessage(`${message} Showing previous history results.`);
+      } else {
+        setErrorMessage(message);
+      }
     } finally {
       setIsLoadingMore(false);
     }
@@ -336,7 +430,12 @@ export function ExecutionHistoryWorkspace({
     <div className="grid min-h-0 gap-3 lg:grid-cols-[minmax(260px,340px)_1fr]">
       <section className="min-h-0 rounded-lg border bg-background p-2">
         <div className="flex items-center justify-between gap-2 px-2 pb-2">
-          <p className="text-xs font-medium text-muted-foreground">Recent activity</p>
+          <div className="flex items-center gap-2">
+            <p className="text-xs font-medium text-muted-foreground">Recent activity</p>
+            <Badge variant="outline" className="text-[10px]">
+              {HISTORY_SURFACE_LABELS[surfaceState]}
+            </Badge>
+          </div>
           <Button
             type="button"
             variant="outline"
@@ -359,17 +458,18 @@ export function ExecutionHistoryWorkspace({
           </Button>
         </div>
 
-        {isLoading ? (
-          <div className="space-y-2 px-2 pb-2">
-            {Array.from({ length: 4 }).map((_, index) => (
-              <div key={index} className="rounded-md border bg-muted/30 p-3">
-                <div className="flex animate-pulse flex-col gap-2">
-                  <div className="h-3 w-32 rounded bg-muted" />
-                  <div className="h-3 w-full rounded bg-muted" />
-                </div>
-              </div>
-            ))}
+        {staleMessage ? (
+          <div className="mx-2 mb-2 rounded-md border border-amber-500/30 bg-amber-500/10 p-2 text-[11px] text-amber-900" role="status">
+            {staleMessage}
           </div>
+        ) : null}
+
+        {surfaceState === "loading" ? (
+          <LoadingSection className="px-2 pb-2" label="Loading execution history">
+            {Array.from({ length: 4 }).map((_, index) => (
+              <SkeletonCard key={index} className="bg-muted/30" lineWidths={["w-32", "w-full"]} />
+            ))}
+          </LoadingSection>
         ) : items.length > 0 ? (
           <div className="flex h-full min-h-0 flex-col gap-2">
             <ul className="min-h-0 space-y-1 overflow-y-auto pr-1">
@@ -431,7 +531,7 @@ export function ExecutionHistoryWorkspace({
           </p>
         )}
 
-        {errorMessage ? (
+        {errorMessage && surfaceState === "error" ? (
           <p className="mt-2 px-2 text-xs text-destructive">{errorMessage}</p>
         ) : null}
       </section>

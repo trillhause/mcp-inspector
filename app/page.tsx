@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Search } from "lucide-react";
 
 import { AddServerDialog } from "@/components/add-server-dialog";
@@ -41,6 +41,7 @@ function sortServers(serverList: McpServer[]) {
 export default function Home() {
   const [servers, setServers] = useState<McpServer[]>([]);
   const [isLoadingServers, setIsLoadingServers] = useState(true);
+  const [isRefreshingServers, setIsRefreshingServers] = useState(false);
   const [serversError, setServersError] = useState<string | null>(null);
   const [oauthNotice, setOauthNotice] = useState<OAuthNotice | null>(null);
   const [selectedServerId, setSelectedServerId] = useState<string | null>(null);
@@ -49,10 +50,16 @@ export default function Home() {
   const [deletingServerIds, setDeletingServerIds] = useState<Set<string>>(new Set());
   const [connectingServerIds, setConnectingServerIds] = useState<Set<string>>(new Set());
   const [disconnectingServerIds, setDisconnectingServerIds] = useState<Set<string>>(new Set());
+  const hasLoadedServersRef = useRef(false);
 
   const loadServers = useCallback(async (signal?: AbortSignal) => {
+    const shouldShowInitialSkeleton = !hasLoadedServersRef.current;
+
     setServersError(null);
-    setIsLoadingServers(true);
+    setIsRefreshingServers(true);
+    if (shouldShowInitialSkeleton) {
+      setIsLoadingServers(true);
+    }
 
     try {
       const response = await fetch("/api/servers", {
@@ -75,6 +82,7 @@ export default function Home() {
       }
 
       setServers(sortServers(payload.servers));
+      hasLoadedServersRef.current = true;
     } catch (error) {
       if (error instanceof DOMException && error.name === "AbortError") {
         return;
@@ -83,7 +91,10 @@ export default function Home() {
       setServersError(error instanceof Error ? error.message : "Failed to load servers");
     } finally {
       if (!signal?.aborted) {
-        setIsLoadingServers(false);
+        if (shouldShowInitialSkeleton) {
+          setIsLoadingServers(false);
+        }
+        setIsRefreshingServers(false);
       }
     }
   }, []);
@@ -407,7 +418,7 @@ export default function Home() {
                   variant="outline"
                   size="sm"
                   onClick={() => void loadServers()}
-                  disabled={isLoadingServers}
+                  disabled={isRefreshingServers}
                 >
                   Retry
                 </Button>
@@ -510,7 +521,7 @@ export default function Home() {
                   variant="outline"
                   size="sm"
                   onClick={() => void loadServers()}
-                  disabled={isLoadingServers}
+                  disabled={isRefreshingServers}
                 >
                   Retry
                 </Button>

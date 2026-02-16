@@ -38,7 +38,7 @@ Task 5 + Task 6 → Task 7 (Cross-Server Regression Matrix + Release QA)
 | # | Task | File | Status | Depends On |
 |---|------|------|--------|------------|
 | 1 | Polish Interaction Contract + State Taxonomy | [task-1](task-1-polish-interaction-contract-and-state-taxonomy.md) | done | — |
-| 2 | Loading States + Skeleton UX | [task-2](task-2-loading-states-skeletons-and-transition-feedback.md) | not_started | Task 1 |
+| 2 | Loading States + Skeleton UX | [task-2](task-2-loading-states-skeletons-and-transition-feedback.md) | done | Task 1 |
 | 3 | Actionable Error Handling + Recovery UX | [task-3](task-3-actionable-error-handling-and-recovery-ux.md) | not_started | Task 1 |
 | 4 | Token Expiry Warning + Reconnect Hardening | [task-4](task-4-token-expiry-warning-and-reauth-flow-hardening.md) | not_started | Task 1 |
 | 5 | Execution History View + Run Detail Drilldown | [task-5](task-5-execution-history-tab-and-run-detail-drilldown.md) | not_started | Task 2, Task 3, Task 4 |
