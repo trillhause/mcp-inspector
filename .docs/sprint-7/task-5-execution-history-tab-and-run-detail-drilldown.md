@@ -1,7 +1,7 @@
 # Task 5: Execution History View + Run Detail Drilldown
 
 **Sprint:** 7 - Polish & Multi-Server Testing
-**Status:** not_started
+**Status:** done
 **Depends on:** Task 2, Task 3, Task 4
 
 ## Description
@@ -38,6 +38,6 @@ Expose a dedicated, polished execution history experience so users can inspect p
 
 ## Acceptance Criteria
 
-- [ ] Execution history is visible and useful from a dedicated UI surface
-- [ ] History list and detail drilldown provide enough context for debugging
-- [ ] History UX follows shared loading/error/token behavior contracts
+- [x] Execution history is visible and useful from a dedicated UI surface
+- [x] History list and detail drilldown provide enough context for debugging
+- [x] History UX follows shared loading/error/token behavior contracts

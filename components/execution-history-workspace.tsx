@@ -4,10 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AlertCircle, CheckCircle2, Copy, Loader2, RefreshCw } from "lucide-react";
 
 import { JsonPayloadViewer, normalizePayload } from "@/components/json-payload-viewer";
-import {
-  LoadingSection,
-  SkeletonCard,
-} from "@/components/loading-state-primitives";
+import { LoadingSection, SkeletonCard } from "@/components/loading-state-primitives";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -18,9 +15,9 @@ import {
 } from "@/lib/mcp/interaction-error-ui";
 import type {
   ListExecutionHistoryResponse,
+  McpExecutionHistoryItem,
   McpInteractionErrorCode,
   McpSurfaceState,
-  McpExecutionHistoryItem,
 } from "@/lib/mcp/interaction-contract";
 import { cn } from "@/lib/utils";
 
@@ -32,11 +29,28 @@ type ExecutionHistoryWorkspaceProps = {
 };
 
 const DEFAULT_PAGE_LIMIT = 20;
+const DEFAULT_FILTERS: HistoryFilters = {
+  type: "all",
+  status: "all",
+};
+
 type HistoryErrorCategory = NonNullable<McpExecutionHistoryItem["error"]>["category"];
 type HistorySurfaceError = McpSurfaceError & {
   source: "server" | "network" | "client";
   failedAt: string;
 };
+type HistoryFilterType = "all" | "tool" | "resource";
+type HistoryFilterStatus = "all" | "success" | "error";
+type HistoryFilters = {
+  type: HistoryFilterType;
+  status: HistoryFilterStatus;
+};
+type HistoryCacheEntry = {
+  items: McpExecutionHistoryItem[];
+  nextCursor: string | null;
+  selectedItemId: string | null;
+};
+
 const HISTORY_SURFACE_LABELS: Record<McpSurfaceState, string> = {
   idle: "Idle",
   loading: "Loading",
@@ -251,6 +265,24 @@ function buildDiagnostics(item: McpExecutionHistoryItem, serverName: string) {
   );
 }
 
+function getFilterBadgeLabel(filters: HistoryFilters) {
+  const parts: string[] = [];
+
+  if (filters.type !== "all") {
+    parts.push(filters.type === "tool" ? "Tool" : "Resource");
+  }
+
+  if (filters.status !== "all") {
+    parts.push(filters.status === "success" ? "Success" : "Error");
+  }
+
+  return parts.length > 0 ? parts.join(" + ") : "All runs";
+}
+
+function buildHistoryCacheKey(serverId: string, filters: HistoryFilters) {
+  return `${serverId}::${filters.type}::${filters.status}`;
+}
+
 export function ExecutionHistoryWorkspace({
   serverId,
   serverName,
@@ -266,14 +298,16 @@ export function ExecutionHistoryWorkspace({
   const [staleError, setStaleError] = useState<HistorySurfaceError | null>(null);
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
   const [clipboardNotice, setClipboardNotice] = useState<string | null>(null);
+  const [filters, setFilters] = useState<HistoryFilters>(DEFAULT_FILTERS);
+
   const requestSequenceRef = useRef(0);
   const itemsRef = useRef<McpExecutionHistoryItem[]>([]);
-  const historyCacheRef = useRef<
-    Map<
-      string,
-      { items: McpExecutionHistoryItem[]; nextCursor: string | null; selectedItemId: string | null }
-    >
-  >(new Map());
+  const historyCacheRef = useRef<Map<string, HistoryCacheEntry>>(new Map());
+
+  const activeCacheKey = useMemo(
+    () => buildHistoryCacheKey(serverId, filters),
+    [filters, serverId],
+  );
 
   const selectedItem = useMemo(() => {
     if (items.length === 0) {
@@ -303,17 +337,19 @@ export function ExecutionHistoryWorkspace({
     return "success";
   }, [isLoading, items.length, loadError, staleError]);
 
+  const hasActiveFilters = filters.type !== "all" || filters.status !== "all";
+
   useEffect(() => {
     itemsRef.current = items;
   }, [items]);
 
   useEffect(() => {
-    historyCacheRef.current.set(serverId, {
+    historyCacheRef.current.set(activeCacheKey, {
       items,
       nextCursor,
       selectedItemId,
     });
-  }, [items, nextCursor, selectedItemId, serverId]);
+  }, [activeCacheKey, items, nextCursor, selectedItemId]);
 
   useEffect(() => {
     if (!selectedItem && items.length > 0) {
@@ -336,7 +372,15 @@ export function ExecutionHistoryWorkspace({
   }, []);
 
   const fetchHistory = useCallback(
-    async ({ cursor, append }: { cursor: string | null; append: boolean }) => {
+    async ({
+      cursor,
+      append,
+      filters: requestFilters,
+    }: {
+      cursor: string | null;
+      append: boolean;
+      filters: HistoryFilters;
+    }) => {
       const requestSequence = requestSequenceRef.current + 1;
       requestSequenceRef.current = requestSequence;
 
@@ -345,6 +389,12 @@ export function ExecutionHistoryWorkspace({
       });
       if (cursor) {
         params.set("cursor", cursor);
+      }
+      if (requestFilters.type !== "all") {
+        params.set("type", requestFilters.type);
+      }
+      if (requestFilters.status !== "all") {
+        params.set("status", requestFilters.status);
       }
 
       const response = await fetch(
@@ -393,7 +443,9 @@ export function ExecutionHistoryWorkspace({
         } satisfies HistorySurfaceError;
       }
 
-      setItems((previousItems) => (append ? [...previousItems, ...normalized.items] : normalized.items));
+      setItems((previousItems) =>
+        append ? [...previousItems, ...normalized.items] : normalized.items,
+      );
       setNextCursor(normalized.next_cursor);
       setLoadError(null);
       setStaleError(null);
@@ -402,26 +454,39 @@ export function ExecutionHistoryWorkspace({
   );
 
   const loadInitial = useCallback(
-    async ({ keepExisting = false }: { keepExisting?: boolean } = {}) => {
+    async ({
+      keepExisting = false,
+      filtersOverride,
+    }: {
+      keepExisting?: boolean;
+      filtersOverride?: HistoryFilters;
+    } = {}) => {
+      const effectiveFilters = filtersOverride ?? filters;
+
       if (keepExisting) {
         setIsRefreshing(true);
       } else {
-      setIsLoading(true);
-      setSelectedItemId(null);
-    }
+        setIsLoading(true);
+        setSelectedItemId(null);
+      }
 
       setLoadError(null);
       setStaleError(null);
       setClipboardNotice(null);
 
       try {
-        await fetchHistory({ cursor: null, append: false });
+        await fetchHistory({
+          cursor: null,
+          append: false,
+          filters: effectiveFilters,
+        });
       } catch (error) {
         const normalizedError = normalizeHistorySurfaceError(error, {
           fallbackCode: "INTERNAL_ERROR",
           fallbackMessage: "Failed to load history.",
           source: "network",
         });
+
         if (keepExisting && itemsRef.current.length > 0) {
           setStaleError(normalizedError);
         } else {
@@ -437,26 +502,26 @@ export function ExecutionHistoryWorkspace({
         }
       }
     },
-    [fetchHistory],
+    [fetchHistory, filters],
   );
 
   useEffect(() => {
-    const cachedHistory = historyCacheRef.current.get(serverId);
+    const cachedHistory = historyCacheRef.current.get(activeCacheKey);
     if (cachedHistory && cachedHistory.items.length > 0) {
       setItems(cachedHistory.items);
       setNextCursor(cachedHistory.nextCursor);
       setSelectedItemId(cachedHistory.selectedItemId ?? cachedHistory.items[0]?.id ?? null);
       setLoadError(null);
       setStaleError(null);
-      void loadInitial({ keepExisting: true });
+      void loadInitial({ keepExisting: true, filtersOverride: filters });
       return;
     }
 
     setItems([]);
     setNextCursor(null);
     setSelectedItemId(null);
-    void loadInitial();
-  }, [loadInitial, serverId]);
+    void loadInitial({ filtersOverride: filters });
+  }, [activeCacheKey, filters, loadInitial]);
 
   const handleRefresh = useCallback(async () => {
     if (isRefreshing || isLoading) {
@@ -468,7 +533,11 @@ export function ExecutionHistoryWorkspace({
     setClipboardNotice(null);
 
     try {
-      await fetchHistory({ cursor: null, append: false });
+      await fetchHistory({
+        cursor: null,
+        append: false,
+        filters,
+      });
     } catch (error) {
       const normalizedError = normalizeHistorySurfaceError(error, {
         fallbackCode: "INTERNAL_ERROR",
@@ -483,7 +552,7 @@ export function ExecutionHistoryWorkspace({
     } finally {
       setIsRefreshing(false);
     }
-  }, [fetchHistory, isLoading, isRefreshing]);
+  }, [fetchHistory, filters, isLoading, isRefreshing]);
 
   const handleLoadMore = useCallback(async () => {
     if (!nextCursor || isLoadingMore) {
@@ -495,7 +564,11 @@ export function ExecutionHistoryWorkspace({
     setClipboardNotice(null);
 
     try {
-      await fetchHistory({ cursor: nextCursor, append: true });
+      await fetchHistory({
+        cursor: nextCursor,
+        append: true,
+        filters,
+      });
     } catch (error) {
       const normalizedError = normalizeHistorySurfaceError(error, {
         fallbackCode: "INTERNAL_ERROR",
@@ -510,7 +583,37 @@ export function ExecutionHistoryWorkspace({
     } finally {
       setIsLoadingMore(false);
     }
-  }, [fetchHistory, isLoadingMore, nextCursor]);
+  }, [fetchHistory, filters, isLoadingMore, nextCursor]);
+
+  const handleTypeFilterChange = useCallback((nextType: HistoryFilterType) => {
+    setFilters((previousFilters) => {
+      if (previousFilters.type === nextType) {
+        return previousFilters;
+      }
+
+      return {
+        ...previousFilters,
+        type: nextType,
+      };
+    });
+  }, []);
+
+  const handleStatusFilterChange = useCallback((nextStatus: HistoryFilterStatus) => {
+    setFilters((previousFilters) => {
+      if (previousFilters.status === nextStatus) {
+        return previousFilters;
+      }
+
+      return {
+        ...previousFilters,
+        status: nextStatus,
+      };
+    });
+  }, []);
+
+  const clearFilters = useCallback(() => {
+    setFilters(DEFAULT_FILTERS);
+  }, []);
 
   const loadErrorDiagnostics = loadError
     ? buildMcpSurfaceErrorDiagnostics(loadError, {
@@ -548,13 +651,16 @@ export function ExecutionHistoryWorkspace({
     : null;
 
   return (
-    <div className="grid min-h-0 gap-3 lg:grid-cols-[minmax(260px,340px)_1fr]">
+    <div className="grid min-h-0 gap-3 lg:grid-cols-[minmax(280px,360px)_1fr]">
       <section className="min-h-0 rounded-lg border bg-background p-2">
         <div className="flex items-center justify-between gap-2 px-2 pb-2">
           <div className="flex items-center gap-2">
             <p className="text-xs font-medium text-muted-foreground">Recent activity</p>
             <Badge variant="outline" className="text-[10px]">
               {HISTORY_SURFACE_LABELS[surfaceState]}
+            </Badge>
+            <Badge variant="secondary" className="text-[10px]">
+              {getFilterBadgeLabel(filters)}
             </Badge>
           </div>
           <Button
@@ -579,8 +685,54 @@ export function ExecutionHistoryWorkspace({
           </Button>
         </div>
 
+        <div className="grid gap-2 border-y px-2 py-2 sm:grid-cols-[1fr_1fr_auto] sm:items-end">
+          <label className="space-y-1 text-[11px] text-muted-foreground">
+            <span className="font-medium">Action type</span>
+            <select
+              value={filters.type}
+              onChange={(event) => handleTypeFilterChange(event.target.value as HistoryFilterType)}
+              className="h-8 w-full rounded-md border bg-background px-2 text-xs text-foreground outline-none focus-visible:ring-[3px] focus-visible:ring-ring/40"
+              aria-label="Filter execution history by action type"
+            >
+              <option value="all">All</option>
+              <option value="tool">Tool</option>
+              <option value="resource">Resource</option>
+            </select>
+          </label>
+
+          <label className="space-y-1 text-[11px] text-muted-foreground">
+            <span className="font-medium">Status</span>
+            <select
+              value={filters.status}
+              onChange={(event) =>
+                handleStatusFilterChange(event.target.value as HistoryFilterStatus)
+              }
+              className="h-8 w-full rounded-md border bg-background px-2 text-xs text-foreground outline-none focus-visible:ring-[3px] focus-visible:ring-ring/40"
+              aria-label="Filter execution history by status"
+            >
+              <option value="all">All</option>
+              <option value="success">Success</option>
+              <option value="error">Error</option>
+            </select>
+          </label>
+
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="h-8"
+            onClick={clearFilters}
+            disabled={!hasActiveFilters}
+          >
+            Clear
+          </Button>
+        </div>
+
         {staleError ? (
-          <div className="mx-2 mb-2 space-y-2 rounded-md border border-amber-500/30 bg-amber-500/10 p-2 text-[11px] text-amber-900" role="status">
+          <div
+            className="mx-2 mb-2 mt-2 space-y-2 rounded-md border border-amber-500/30 bg-amber-500/10 p-2 text-[11px] text-amber-900"
+            role="status"
+          >
             <p>{staleError.message}</p>
             <p>{staleErrorAction?.hint ?? "Showing previous history results."}</p>
             <div className="flex flex-wrap gap-2">
@@ -616,13 +768,13 @@ export function ExecutionHistoryWorkspace({
         ) : null}
 
         {surfaceState === "loading" ? (
-          <LoadingSection className="px-2 pb-2" label="Loading execution history">
+          <LoadingSection className="px-2 pb-2 pt-2" label="Loading execution history">
             {Array.from({ length: 4 }).map((_, index) => (
               <SkeletonCard key={index} className="bg-muted/30" lineWidths={["w-32", "w-full"]} />
             ))}
           </LoadingSection>
         ) : items.length > 0 ? (
-          <div className="flex h-full min-h-0 flex-col gap-2">
+          <div className="flex h-full min-h-0 flex-col gap-2 pt-2">
             <ul className="min-h-0 space-y-1 overflow-y-auto pr-1">
               {items.map((item) => {
                 const selected = item.id === selectedItem?.id;
@@ -677,8 +829,10 @@ export function ExecutionHistoryWorkspace({
             ) : null}
           </div>
         ) : (
-          <p className="rounded-md border border-dashed bg-muted/20 p-3 text-xs text-muted-foreground">
-            No execution history yet. Run a tool or read a resource to populate this list.
+          <p className="mt-2 rounded-md border border-dashed bg-muted/20 p-3 text-xs text-muted-foreground">
+            {hasActiveFilters
+              ? "No execution history matched the selected filters."
+              : "No execution history yet. Run a tool or read a resource to populate this list."}
           </p>
         )}
 
@@ -774,14 +928,10 @@ export function ExecutionHistoryWorkspace({
             <div className="min-h-0 flex-1 space-y-3 overflow-y-auto pr-1">
               {selectedItem.error ? (
                 <div className="space-y-2 rounded-md border border-destructive/40 bg-destructive/5 p-3 text-xs text-destructive">
-                  <div className="font-medium">
-                    {selectedItem.error.message}
-                  </div>
+                  <div className="font-medium">{selectedItem.error.message}</div>
                   <p className="font-mono text-[11px]">
                     code={selectedItem.error.code}
-                    {selectedItem.error.category
-                      ? ` category=${selectedItem.error.category}`
-                      : ""}
+                    {selectedItem.error.category ? ` category=${selectedItem.error.category}` : ""}
                   </p>
                   {selectedItem.error.details.length > 0 ? (
                     <ul className="list-disc pl-4">
