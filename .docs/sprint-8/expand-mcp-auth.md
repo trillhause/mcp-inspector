@@ -1,4 +1,4 @@
-# Sprint 7 Plan: expand-mcp-auth
+# Sprint 8 Plan: expand-mcp-auth
 
 ## Objective
 

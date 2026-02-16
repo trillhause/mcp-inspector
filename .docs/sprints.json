@@ -1,6 +1,6 @@
 {
   "project": "MCP Client Web Application",
-  "totalSprints": 7,
+  "totalSprints": 8,
   "sprints": [
     {
       "id": 1,
@@ -40,31 +40,40 @@
     },
     {
       "id": 5,
+      "name": "UI Navigation Refresh (Sidebar + Main Panel)",
+      "status": "not_started",
+      "goal": "Replace the bottom inspector interaction model with a persistent desktop sidebar and a focused main details panel, with a mobile slide-over server list and equivalent capability UX.",
+      "testable": "On desktop, server list stays visible in a left sidebar while selected server details render in main panel; on mobile, tapping 'Servers' opens slide-over list; selecting a server updates the details panel and preserves capability tabs, refresh, and error states.",
+      "tasks": 6,
+      "taskDir": ".docs/sprint-5/"
+    },
+    {
+      "id": 6,
       "name": "Tool Execution & Resource Reading",
       "status": "not_started",
       "goal": "Build dynamic forms from tool schemas, execute tools against MCP servers, read resources, and display results with JSON syntax highlighting.",
       "testable": "Click a tool (e.g., notion_search) → form appears with input fields matching the schema → fill in params → click Execute → see JSON result with syntax highlighting → click a resource → see its contents rendered → execution appears in history.",
       "tasks": null,
-      "taskDir": ".docs/sprint-5/"
+      "taskDir": ".docs/sprint-6/"
     },
     {
-      "id": 6,
+      "id": 7,
       "name": "Polish & Multi-Server Testing",
       "status": "not_started",
       "goal": "Loading states, error handling, token expiry warnings, execution history view, server settings, and test with multiple MCP servers (GitHub, Sentry, etc).",
       "testable": "Connect to 2+ servers → switch between them in inspector → see loading skeletons during data fetch → disconnect with expired token shows warning → execution history tab shows past runs → error states show helpful messages.",
       "tasks": null,
-      "taskDir": ".docs/sprint-6/"
+      "taskDir": ".docs/sprint-7/"
     },
     {
-      "id": 7,
+      "id": 8,
       "name": "expand-mcp-auth",
       "status": "not_started",
       "goal": "Harden and expand OAuth discovery/client resolution so additional MCP providers connect reliably even when metadata endpoints or auth requirements vary by provider.",
       "testable": "GitHub, Figma, Canva, Notion, PostHog, and Sentry each return deterministic connect outcomes: either a redirectable authorization URL or a precise actionable validation error with remediation guidance.",
       "tasks": null,
-      "taskDir": ".docs/sprint-7/",
-      "planFile": ".docs/sprint-7/expand-mcp-auth.md",
+      "taskDir": ".docs/sprint-8/",
+      "planFile": ".docs/sprint-8/expand-mcp-auth.md",
       "findings": [
         "Current discovery assumes only root-level OAuth protected-resource metadata and misses path-scoped metadata patterns used by some providers.",
         "Provider auth behavior differs: some support dynamic client registration while others require pre-configured client credentials and provider-specific setup.",
