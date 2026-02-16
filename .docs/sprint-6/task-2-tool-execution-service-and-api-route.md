@@ -1,7 +1,7 @@
 # Task 2: Tool Execution Service + API Route
 
 **Sprint:** 6 - Tool Execution & Resource Reading
-**Status:** not_started
+**Status:** done
 **Depends on:** Task 1
 
 ## Description
@@ -39,7 +39,7 @@ Implement authenticated tool execution against MCP servers with strict validatio
 
 ## Acceptance Criteria
 
-- [ ] Tool execution route works end-to-end for connected servers
-- [ ] Validation and error mapping are deterministic and machine-readable
-- [ ] Existing token refresh and transport fallback behavior remains intact
-- [ ] Response contract is stable for UI rendering
+- [x] Tool execution route works end-to-end for connected servers
+- [x] Validation and error mapping are deterministic and machine-readable
+- [x] Existing token refresh and transport fallback behavior remains intact
+- [x] Response contract is stable for UI rendering
