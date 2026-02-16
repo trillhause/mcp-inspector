@@ -436,7 +436,7 @@ export function ExecutionHistoryWorkspace({
         ) : null}
       </section>
 
-      <section className="min-h-0 rounded-lg border bg-background p-3">
+      <section className="min-h-0 min-w-0 rounded-lg border bg-background p-3">
         {selectedItem ? (
           <div className="flex h-full min-h-0 flex-col gap-4">
             <div className="space-y-1">

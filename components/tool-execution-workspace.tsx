@@ -640,7 +640,7 @@ export function ToolExecutionWorkspace({
         </ul>
       </section>
 
-      <section className="min-h-0 rounded-lg border bg-background p-3">
+      <section className="min-h-0 min-w-0 rounded-lg border bg-background p-3">
         {selectedTool ? (
           <ToolExecutionForm
             key={`${serverId}:${selectedTool.name}`}
@@ -823,7 +823,7 @@ function ToolExecutionForm({
   }, [executeArguments, lastSubmittedArguments, runState]);
 
   return (
-    <form className="flex h-full min-h-0 flex-col gap-4" onSubmit={handleSubmit}>
+    <form className="flex h-full min-h-0 min-w-0 flex-col gap-4" onSubmit={handleSubmit}>
       <div className="space-y-1">
         <div className="flex flex-wrap items-center gap-2">
           <h3 className="text-sm font-semibold">{selectedTool.name}</h3>

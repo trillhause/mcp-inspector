@@ -183,7 +183,7 @@ export function JsonPayloadViewer({
   return (
     <pre
       className={cn(
-        "overflow-auto rounded-md border bg-background p-3 font-mono text-[11px] leading-relaxed whitespace-pre",
+        "overflow-auto rounded-md border bg-background p-3 font-mono text-[11px] leading-relaxed whitespace-pre-wrap break-words",
         maxHeightClassName,
         className,
       )}

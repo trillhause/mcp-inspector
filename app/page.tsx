@@ -361,7 +361,7 @@ export default function Home() {
   );
 
   return (
-    <div className="flex min-h-screen flex-col bg-background">
+    <div className="flex h-dvh flex-col bg-background">
       <Header
         onAddServer={() => setIsAddServerDialogOpen(true)}
         onOpenServerSheet={() => setIsServerSheetOpen(true)}
