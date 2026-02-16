@@ -57,6 +57,11 @@ CREATE TABLE IF NOT EXISTS oauth_state (
   mcp_server_id TEXT NOT NULL,
   state_value TEXT NOT NULL UNIQUE,
   code_verifier TEXT NOT NULL,
+  client_id TEXT,
+  client_secret TEXT,
+  oauth_metadata TEXT,
+  protected_resource_url TEXT,
+  authorization_server_url TEXT,
   redirect_uri TEXT NOT NULL,
   expires_at TEXT NOT NULL,
   created_at TEXT NOT NULL DEFAULT (datetime('now')),
@@ -89,6 +94,30 @@ function createDatabaseConnection() {
   return db;
 }
 
+function ensureOAuthStateColumns(db: SqliteDatabase) {
+  const tableInfo = db
+    .prepare("PRAGMA table_info(oauth_state)")
+    .all() as Array<{ name: string }>;
+  const existingColumns = new Set(tableInfo.map((column) => column.name));
+
+  const requiredColumns = [
+    "client_id TEXT",
+    "client_secret TEXT",
+    "oauth_metadata TEXT",
+    "protected_resource_url TEXT",
+    "authorization_server_url TEXT",
+  ];
+
+  for (const columnDefinition of requiredColumns) {
+    const [columnName] = columnDefinition.split(" ");
+    if (!columnName || existingColumns.has(columnName)) {
+      continue;
+    }
+
+    db.exec(`ALTER TABLE oauth_state ADD COLUMN ${columnDefinition}`);
+  }
+}
+
 export function getDb() {
   if (!globalThis.__mcpClientDb) {
     globalThis.__mcpClientDb = createDatabaseConnection();
@@ -104,6 +133,7 @@ export function initializeDatabase() {
 
   const db = getDb();
   db.exec(SCHEMA_SQL);
+  ensureOAuthStateColumns(db);
   globalThis.__mcpClientDbInitialized = true;
 }
 
