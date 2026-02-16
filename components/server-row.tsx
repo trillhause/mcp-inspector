@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { Loader2, LogIn, LogOut, Trash2, Unplug } from "lucide-react";
+import { Loader2, LogIn, Trash2, Unplug } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";

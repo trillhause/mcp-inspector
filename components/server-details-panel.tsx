@@ -314,10 +314,38 @@ function SelectedServerContent({
         };
       } catch (error) {
         if (error instanceof DOMException && error.name === "AbortError") {
-          const message = signal?.aborted
-            ? "Request aborted"
-            : `Capabilities request timed out after ${CAPABILITIES_REQUEST_TIMEOUT_MS / 1000}s`;
-          return { ok: false, stale: false, message };
+          if (signal?.aborted) {
+            return { ok: false, stale: false, message: "Request aborted" };
+          }
+
+          const timeoutError = normalizeCapabilitiesSurfaceError(
+            {
+              error: {
+                code: "NETWORK_ERROR",
+                message: `Capabilities request timed out after ${CAPABILITIES_REQUEST_TIMEOUT_MS / 1000}s`,
+              },
+            },
+            {
+              fallbackCode: "NETWORK_ERROR",
+              fallbackMessage: "Capabilities request timed out",
+              source: "network",
+            },
+          );
+          if (capabilitiesRef.current) {
+            setCapabilitiesWarning(timeoutError.message);
+            if (refresh) {
+              setRefreshNotice(timeoutError.message);
+            }
+          } else {
+            capabilitiesRef.current = null;
+            setCapabilities(null);
+            setCapabilitiesError(timeoutError);
+          }
+          return {
+            ok: false,
+            stale: Boolean(capabilitiesRef.current),
+            message: timeoutError.message,
+          };
         }
 
         const normalizedError = normalizeCapabilitiesSurfaceError(error, {

@@ -214,6 +214,7 @@ export default function Home() {
 
         const payload = (await response.json().catch(() => null)) as
           | {
+              next_action?: string;
               authorization_url?: string;
               error?: { message?: string };
             }
@@ -221,6 +222,11 @@ export default function Home() {
 
         if (!response.ok) {
           throw new Error(payload?.error?.message ?? "Failed to initiate OAuth connect flow");
+        }
+
+        if (payload?.next_action === "direct_connect") {
+          await loadServers();
+          return;
         }
 
         if (!payload?.authorization_url) {

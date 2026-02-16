@@ -21,6 +21,7 @@ type ServerRow = {
   id: string;
   mcp_url: string;
   transport: ServerTransport;
+  auth_mode: "oauth" | "none";
 };
 
 type CredentialRow = {
@@ -46,7 +47,7 @@ export type CreateMcpClientInput = {
 
 type ResolvedConnectionContext = {
   context: McpConnectionContext;
-  accessToken: string;
+  accessToken: string | null;
 };
 
 export type ConnectedMcpClient = {
@@ -111,7 +112,8 @@ function readServerById(mcpServerId: string) {
     `SELECT
       id,
       mcp_url,
-      transport
+      transport,
+      auth_mode
     FROM mcp_servers
     WHERE id = ?
     LIMIT 1`,
@@ -143,6 +145,19 @@ function resolveConnectionContext(mcpServerId: string): ResolvedConnectionContex
       httpStatus: 404,
       details: ["Server not found"],
     });
+  }
+
+  if (server.auth_mode === "none") {
+    return {
+      context: {
+        mcp_server_id: server.id,
+        mcp_url: server.mcp_url,
+        configured_transport: server.transport,
+        transport_candidates: mapConfiguredTransportToCandidates(server.transport),
+        token_expires_at: null,
+      },
+      accessToken: null,
+    };
   }
 
   const credentials = readCredentialByServerId(mcpServerId);
@@ -252,10 +267,10 @@ function withSessionDiagnostics(error: McpClientError, extra: string[]) {
 
 async function connectWithTransport(
   context: McpConnectionContext,
-  accessToken: string,
+  accessToken: string | null,
   selectedTransport: McpTransportMode,
 ): Promise<ConnectedMcpClient> {
-  const requestInit = createAuthenticatedRequestInit(accessToken);
+  const requestInit = accessToken ? createAuthenticatedRequestInit(accessToken) : {};
   const transport = createTransport(context.mcp_url, selectedTransport, requestInit);
   const client = new Client(MCP_CLIENT_INFO);
 
@@ -401,6 +416,42 @@ export async function createMcpClientByServerId(
       httpStatus: 400,
       details: [`requested_transport=${selectedTransport}`],
     });
+  }
+
+  // No-auth servers: connect directly without token refresh
+  if (initialConnection.accessToken === null) {
+    const candidateTransports = transportOverride
+      ? [transportOverride]
+      : [...initialConnection.context.transport_candidates];
+    
+    for (const candidateTransport of candidateTransports) {
+      if (!candidateTransport) continue;
+      try {
+        const session = await connectWithTransport(
+          initialConnection.context,
+          null,
+          candidateTransport,
+        );
+        logMcpSessionEvent("info", "session_connected", {
+          mcp_server_id: mcpServerId,
+          selected_transport: candidateTransport,
+          auth_mode: "none",
+        });
+        return {
+          ...session,
+          connection: {
+            ...session.connection,
+            attempted_transports: [candidateTransport],
+            refreshed_before_connect: false,
+          },
+        };
+      } catch (error) {
+        if (!(error instanceof McpClientError)) throw error;
+        const hasMore = candidateTransports.indexOf(candidateTransport) < candidateTransports.length - 1;
+        if (!hasMore) throw error;
+      }
+    }
+    throw new McpClientError("MCP_CONNECT_FAILED", "Failed to connect to MCP server", { httpStatus: 502 });
   }
 
   const preConnectRefresh = await refreshBeforeConnect(mcpServerId);
