@@ -1,7 +1,7 @@
 # Task 2: Desktop Two-Pane Shell Layout
 
 **Sprint:** 5 - UI Navigation Refresh (Sidebar + Main Panel)
-**Status:** not_started
+**Status:** done
 **Depends on:** Task 1
 
 ## Description
