@@ -10,15 +10,13 @@ import { bootstrapServerStore, PayloadValidationError } from "@/lib/servers";
 
 export const runtime = "nodejs";
 
-type AuthorizeRequestPayload = {
-  mcp_server_id?: unknown;
+type ConnectRequestPayload = {
   redirect_uri?: unknown;
   scope?: unknown;
   prompt?: unknown;
 };
 
-type ValidatedAuthorizeRequest = {
-  mcpServerId: string;
+type ValidatedConnectRequest = {
   redirectUri: string | null;
   scope: string | null;
   prompt: string | null;
@@ -37,10 +35,15 @@ function errorResponse(status: number, code: string, message: string, details?: 
   );
 }
 
-async function readJsonObject(request: Request): Promise<AuthorizeRequestPayload> {
+async function readOptionalJsonObject(request: Request): Promise<ConnectRequestPayload> {
+  const rawBody = await request.text();
+  if (rawBody.trim().length === 0) {
+    return {};
+  }
+
   let payload: unknown;
   try {
-    payload = await request.json();
+    payload = JSON.parse(rawBody);
   } catch {
     throw new PayloadValidationError(["Request body must be valid JSON"]);
   }
@@ -49,18 +52,15 @@ async function readJsonObject(request: Request): Promise<AuthorizeRequestPayload
     throw new PayloadValidationError(["Request body must be a JSON object"]);
   }
 
-  return payload as AuthorizeRequestPayload;
+  return payload as ConnectRequestPayload;
 }
 
-function validateAuthorizePayload(payload: AuthorizeRequestPayload): ValidatedAuthorizeRequest {
+function validateConnectPayload(payload: ConnectRequestPayload): ValidatedConnectRequest {
   const issues: string[] = [];
-  const mcpServerId =
-    typeof payload.mcp_server_id === "string" ? payload.mcp_server_id.trim() : "";
-  if (!mcpServerId) {
-    issues.push("mcp_server_id is required");
-  }
-
   let redirectUri: string | null = null;
+  let scope: string | null = null;
+  let prompt: string | null = null;
+
   if (payload.redirect_uri !== undefined) {
     if (typeof payload.redirect_uri !== "string" || payload.redirect_uri.trim().length === 0) {
       issues.push("redirect_uri must be a non-empty string when provided");
@@ -69,7 +69,6 @@ function validateAuthorizePayload(payload: AuthorizeRequestPayload): ValidatedAu
     }
   }
 
-  let scope: string | null = null;
   if (payload.scope !== undefined) {
     if (typeof payload.scope !== "string" || payload.scope.trim().length === 0) {
       issues.push("scope must be a non-empty string when provided");
@@ -78,7 +77,6 @@ function validateAuthorizePayload(payload: AuthorizeRequestPayload): ValidatedAu
     }
   }
 
-  let prompt: string | null = null;
   if (payload.prompt !== undefined) {
     if (typeof payload.prompt !== "string" || payload.prompt.trim().length === 0) {
       issues.push("prompt must be a non-empty string when provided");
@@ -92,19 +90,24 @@ function validateAuthorizePayload(payload: AuthorizeRequestPayload): ValidatedAu
   }
 
   return {
-    mcpServerId,
     redirectUri,
     scope,
     prompt,
   };
 }
 
-export async function POST(request: Request) {
+export async function POST(
+  request: Request,
+  context: {
+    params: Promise<{ id: string }>;
+  },
+) {
   bootstrapServerStore();
+  const { id } = await context.params;
 
-  let payload: AuthorizeRequestPayload;
+  let payload: ConnectRequestPayload;
   try {
-    payload = await readJsonObject(request);
+    payload = await readOptionalJsonObject(request);
   } catch (error) {
     if (error instanceof PayloadValidationError) {
       return errorResponse(400, "INVALID_REQUEST", "Request validation failed", error.issues);
@@ -113,9 +116,9 @@ export async function POST(request: Request) {
     return errorResponse(400, "INVALID_REQUEST", "Request validation failed");
   }
 
-  let validatedPayload: ValidatedAuthorizeRequest;
+  let validatedPayload: ValidatedConnectRequest;
   try {
-    validatedPayload = validateAuthorizePayload(payload);
+    validatedPayload = validateConnectPayload(payload);
   } catch (error) {
     if (error instanceof PayloadValidationError) {
       return errorResponse(400, "INVALID_REQUEST", "Request validation failed", error.issues);
@@ -127,13 +130,15 @@ export async function POST(request: Request) {
   try {
     const authorization = await startOAuthAuthorizationFlow({
       request,
-      mcpServerId: validatedPayload.mcpServerId,
+      mcpServerId: id,
       redirectUri: validatedPayload.redirectUri,
       scope: validatedPayload.scope,
       prompt: validatedPayload.prompt,
     });
 
     return NextResponse.json({
+      mcp_server_id: authorization.mcp_server_id,
+      next_action: "redirect",
       authorization_url: authorization.authorization_url,
       flow: authorization.flow,
     });
@@ -154,6 +159,6 @@ export async function POST(request: Request) {
       return errorResponse(error.httpStatus, error.code, error.message);
     }
 
-    return errorResponse(500, "INTERNAL_ERROR", "Failed to initiate OAuth authorization");
+    return errorResponse(500, "INTERNAL_ERROR", "Failed to initiate server connect flow");
   }
 }
