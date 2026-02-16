@@ -85,10 +85,12 @@ export function ServerRow({
             aria-label={STATUS_LABEL[server.connection_status]}
           />
           <span className="truncate text-sm font-medium">{server.name}</span>
-        </div>
-        {capabilityHint ? (
-          <p className="ml-3 truncate text-[11px] text-muted-foreground">{capabilityHint}</p>
+          {isSelected && capabilityHint ? (
+          <Badge className="ml-3 px-1.5 py-0.5 text-[11px] font-normal bg-slate-200 text-muted-foreground">
+            {capabilityHint}
+          </Badge>
         ) : null}
+        </div>
       </div>
 
       {/* Quick actions - visible on hover or when row is selected */}

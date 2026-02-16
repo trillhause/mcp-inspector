@@ -86,6 +86,9 @@ export type ReadResourceRequestBody = {
 export type ReadResourceSuccessResponse = McpInteractionEnvelopeBase & {
   target: { type: "resource"; uri: string };
   status: "success";
+  mimeType: string | null;
+  preview: string | null;
+  is_truncated: boolean;
   result: unknown;
 };
 
